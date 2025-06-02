@@ -1,0 +1,49 @@
+{
+  "questions": [
+    {
+      "question": "What is Fungi",
+      "options": ["Fungi", "Lichen", "Bryophytes", "Full test"],
+      "correctOptionIndex": 0
+    },
+    {
+      "question": "Which of the following is a characteristic of algae?",
+      "options": ["They have cell walls made of chitin", "They are heterotrophic organisms", "They contain chlorophyll", "They lack cell walls"],
+      "correctOptionIndex": 2
+    },
+    {
+      "question": "Algae are primarily found in which environment?",
+      "options": ["Deserts only", "Aquatic environments", "Underground caves", "Urban areas"],
+      "correctOptionIndex": 1
+    },
+    {
+      "question": "Which of the following is NOT a major group of algae?",
+      "options": ["Red algae", "Green algae", "Brown algae", "Purple algae"],
+      "correctOptionIndex": 3
+    },
+    {
+      "question": "What pigment is characteristic of green algae?",
+      "options": ["Phycoerythrin", "Chlorophyll a and b", "Phycocyanin", "Fucoxanthin"],
+      "correctOptionIndex": 1
+    },
+    {
+      "question": "Which algae group is most closely related to land plants?",
+      "options": ["Brown algae", "Red algae", "Green algae", "Blue-green algae"],
+      "correctOptionIndex": 2
+    },
+    {
+      "question": "What is the main storage compound in most algae?",
+      "options": ["Glycogen", "Starch", "Cellulose", "Chitin"],
+      "correctOptionIndex": 1
+    },
+    {
+      "question": "Which of the following is an economic importance of algae?",
+      "options": ["Source of timber", "Production of antibiotics", "Source of food and food additives", "Manufacturing of textiles"],
+      "correctOptionIndex": 2
+    },
+    {
+      "question": "What is eutrophication?",
+      "options": ["A process that removes algae from water bodies", "Excessive growth of algae due to nutrient pollution", "The evolution of algae into land plants", "A method of classifying algae"],
+      "correctOptionIndex": 1
+    }
+  ]
+}
