@@ -95,38 +95,7 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 20),
-
-                // 🚀 New Button for "Go to Exam Screen"
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => const ExamScreen(examTitle: 'Real Exam', questionSetId: '', studentId: '',),
-                        ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF0B7C25)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    child: const Text(
-                      'Go to Exam',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF0B7C25),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 40),
+                const SizedBox(height: 50),
               ],
             ),
           ),

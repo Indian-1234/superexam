@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1089178565344",
+    "project_id": "exam-f77f4",
+    "storage_bucket": "exam-f77f4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1089178565344:android:c17718cbc202668088ee85",
+        "android_client_info": {
+          "package_name": "com.example.superexam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjPIAoNnRkbKYdgNBvDD1a2oudWt1-qCg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

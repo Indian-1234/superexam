@@ -1,3 +1,5 @@
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'success_screen.dart';
@@ -64,47 +66,159 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
 // Inside the _VerificationScreenState class, update the _verifyCode method:
+// Update your VerificationScreen _verifyCode and _resendCode methods
 
-  void _verifyCode() {
-    // Check if all digits are entered
-    if (_verificationCode.length != 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter all 4 digits')),
+
+
+// Replace the existing _verifyCode method
+void _verifyCode() async {
+  // Check if all digits are entered
+  if (_verificationCode.length != 4) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please enter all 4 digits')),
+    );
+    return;
+  }
+
+  // Show loading indicator
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0B7C25)),
+        ),
       );
-      return;
-    }
+    },
+  );
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0B7C25)),
+  try {
+    // Console log the 4-digit OTP
+    print('Entered OTP: $_verificationCode');
+    
+    final response = await http.post(
+      Uri.parse('http://localhost:5000/api/students/verify-otp'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'mobileNo': widget.phoneNumber,
+        'otp': _verificationCode,
+      }),
+    );
+
+    // Close loading dialog
+    Navigator.pop(context);
+
+    if (response.statusCode == 201) {
+      final responseData = json.decode(response.body);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration completed successfully!'),
+            backgroundColor: Colors.green,
           ),
         );
-      },
-    );
 
-    // Simulate verification delay
-    Future.delayed(const Duration(seconds: 2), () {
-      // Close loading dialog
-      Navigator.pop(context);
-
-      // Navigate to success screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const SuccessScreen()),
+        // Navigate to success screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const SuccessScreen()),
+        );
+      }
+    } else {
+      if (mounted) {
+        final errorData = json.decode(response.body);
+        final errorMessage = errorData['message'] ?? 'OTP verification failed';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+        
+        // Clear the input fields on error
+        _digit1Controller.clear();
+        _digit2Controller.clear();
+        _digit3Controller.clear();
+        _digit4Controller.clear();
+        
+        // Set focus back to first digit
+        FocusScope.of(context).requestFocus(_focusNode1);
+      }
+    }
+  } catch (e) {
+    // Close loading dialog
+    Navigator.pop(context);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Network error: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
-    });
+    }
   }
-  void _resendCode() {
-    // Implement resend logic here
-    print('Resending code to ${widget.phoneNumber}');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Verification code resent')),
+}
+
+// Replace the existing _resendCode method
+void _resendCode() async {
+  try {
+    final response = await http.post(
+      Uri.parse('http://localhost:5000/api/students/resend-otp'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'mobileNo': widget.phoneNumber,
+      }),
     );
+
+    if (response.statusCode == 200) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('OTP resent successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Clear existing input
+        _digit1Controller.clear();
+        _digit2Controller.clear();
+        _digit3Controller.clear();
+        _digit4Controller.clear();
+        
+        // Set focus to first digit
+        FocusScope.of(context).requestFocus(_focusNode1);
+      }
+    } else {
+      if (mounted) {
+        final errorData = json.decode(response.body);
+        final errorMessage = errorData['message'] ?? 'Failed to resend OTP';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Network error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
+}
 
   @override
   Widget build(BuildContext context) {
