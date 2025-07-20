@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:superexam/main.dart';
+import 'package:superexam/screens/home/home_dashboard_screen.dart';
 
 class ResultScreen extends StatelessWidget {
   final String examTitle;
@@ -137,8 +139,8 @@ class ResultScreen extends StatelessWidget {
                               _buildInfoRow('Points per Question:', pointValue.toStringAsFixed(1)),
                               const SizedBox(height: 8),
                               _buildInfoRow('Correct Answers:', '$correctAnswers out of $totalQuestions'),
-                              const SizedBox(height: 8),
-                              _buildInfoRow('Attempt ID:', attemptId),
+                              // const SizedBox(height: 8),
+                              // _buildInfoRow('Attempt ID:', attemptId),
                             ],
                           ),
                         ),
@@ -316,51 +318,39 @@ class ResultScreen extends StatelessWidget {
               ),
 
               // Action buttons
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          side: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        child: const Text(
-                          'Back to Home',
-                          style: TextStyle(color: Colors.black87),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Here you can implement functionality to retry the exam
-                          Navigator.of(context).pop();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Colors.green,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Retry Exam',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                SizedBox(
+  width: double.infinity,
+  child: ElevatedButton(
+    onPressed: () async {
+      // Get user session data
+      final userName = await UserSession.getUserName() ?? 'Student';
+      final userId = await UserSession.getUserId() ?? '';
+      
+      // Clear all routes and push HomeDashboardScreen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => HomeDashboardScreen(
+            username: userName,
+            studentId: userId,
+          ),
+        ),
+        (route) => false, // Remove all previous routes
+      );
+    },
+    style: ElevatedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      backgroundColor: Colors.green,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+    ),
+    child: const Text(
+      'Back to Home',
+      style: TextStyle(color: Colors.white),
+    ),
+  ),
+),
+          
             ],
           ),
         ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:superexam/main.dart';
+import 'package:superexam/screens/home/home_dashboard_screen.dart';
 
 class ExamCompletedScreen extends StatelessWidget {
   final String examTitle;
@@ -296,25 +298,40 @@ class ExamCompletedScreen extends StatelessWidget {
               const Spacer(),
 
               // Back to Home button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Back to Home',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
+             SizedBox(
+  width: double.infinity,
+  child: ElevatedButton(
+    onPressed: () async {
+      // Get user session data
+      final userName = await UserSession.getUserName() ?? 'Student';
+      final userId = await UserSession.getUserId() ?? '';
+      
+      // Clear all routes and push HomeDashboardScreen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => HomeDashboardScreen(
+            username: userName,
+            studentId: userId,
+          ),
+        ),
+        (route) => false, // Remove all previous routes
+      );
+    },
+    style: ElevatedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      backgroundColor: Colors.green,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+    ),
+    child: const Text(
+      'Back to Home',
+      style: TextStyle(color: Colors.white),
+    ),
+  ),
+),
+
+
             ],
           ),
         ),

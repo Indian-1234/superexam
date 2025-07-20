@@ -2,124 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:superexam/message/firebase_messaging_service.dart';
 import 'dart:convert';
-import 'verification_screen.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+import 'package:superexam/screens/auth/loginerification.dart';
+import 'package:superexam/screens/auth/register_screen.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Adityan Academy Login',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      home: const LoginScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+class StudentLoginScreen extends StatefulWidget {
+  const StudentLoginScreen({Key? key}) : super(key: key);
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  _StudentLoginScreenState createState() => _StudentLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _nameController = TextEditingController();
+class _StudentLoginScreenState extends State<StudentLoginScreen> {
   final TextEditingController _mobileController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
-  String _selectedSubject = 'Choose Subject';
-  String _selectedSubjectId = '';
-  List<Map<String, dynamic>> _subjects = [];
   bool _isLoading = false;
-  bool _isLoadingSubjects = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchSubjects();
-  }
 
   @override
   void dispose() {
-    // Dispose controllers to prevent memory leaks
-    _nameController.dispose();
     _mobileController.dispose();
-    _emailController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchSubjects() async {
-    setState(() {
-      _isLoadingSubjects = true;
-    });
-
-    try {
-      final response = await http.get(
-        Uri.parse('http://localhost:5000/api/subjects/getAll'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true) {
-          setState(() {
-            _subjects = List<Map<String, dynamic>>.from(data['data'].map((subject) => {
-              'id': subject['_id'],
-              'name': subject['name'],
-              'code': subject['code'],
-              'description': subject['description'],
-            }));
-          });
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to load subjects'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading subjects: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingSubjects = false;
-        });
-      }
-    }
-  }
-
   bool _validateForm() {
-    if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your name')),
-      );
-      return false;
-    }
-    
     if (_mobileController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your mobile number')),
@@ -135,127 +40,85 @@ class _LoginScreenState extends State<LoginScreen> {
       return false;
     }
     
-    if (_emailController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email')),
-      );
-      return false;
-    }
-    
-    // Validate email format
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text.trim())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address')),
-      );
-      return false;
-    }
-    
-    if (_addressController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your address')),
-      );
-      return false;
-    }
-    
-    if (_selectedSubject == 'Choose Subject') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a subject')),
-      );
-      return false;
-    }
-    
     return true;
   }
 
   void _clearForm() {
-    _nameController.clear();
     _mobileController.clear();
-    _emailController.clear();
-    _addressController.clear();
-    setState(() {
-      _selectedSubject = 'Choose Subject';
-      _selectedSubjectId = '';
-    });
   }
 
-// Update the _submitForm method in your LoginScreen
-
-// Updated _submitForm method in LoginScreen
-Future<void> _submitForm() async {
-  if (!_validateForm()) return;
-  
-  setState(() {
-    _isLoading = true;
-  });
-  
-  try {
-    // Get FCM token
-    String? fcmToken = await FirebaseMessagingService.getToken();
+  Future<void> _initiateLogin() async {
+    if (!_validateForm()) return;
     
-    final response = await http.post(
-      Uri.parse('http://localhost:5000/api/students/initiate'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'name': _nameController.text.trim(),
-        'mobileNo': _mobileController.text.trim(),
-        'email': _emailController.text.trim(),
-        'address': _addressController.text.trim(),
-        'subject': [_selectedSubjectId],
-        'date': DateTime.now().toIso8601String().split('T')[0],
-        'fcmToken': fcmToken, // Add FCM token
-      }),
-    );
+    setState(() {
+      _isLoading = true;
+    });
     
-    if (response.statusCode == 200) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('OTP sent to your device!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        final mobileNumber = _mobileController.text.trim();
-        
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => VerificationScreen(
-              phoneNumber: mobileNumber,
+    try {
+      // Get FCM token
+      String? fcmToken = await FirebaseMessagingService.getToken();
+      
+      final response = await http.post(
+        Uri.parse('http://localhost:5000/api/students/login/initiate'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'mobileNo': _mobileController.text.trim(),
+          'fcmToken': fcmToken,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(responseData['message'] ?? 'Login OTP sent successfully!'),
+              backgroundColor: Colors.green,
             ),
-          ),
-        );
+          );
+
+          final mobileNumber = _mobileController.text.trim();
+          
+          // Navigate to verification screen for login
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => LoginVerificationScreen(
+                phoneNumber: mobileNumber,
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          final errorData = json.decode(response.body);
+          final errorMessage = errorData['message'] ?? 'Failed to send login OTP';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    } else {
+    } catch (e) {
       if (mounted) {
-        final errorData = json.decode(response.body);
-        final errorMessage = errorData['message'] ?? 'Failed to send OTP';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
+            content: Text('Network error: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Network error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -289,30 +152,30 @@ Future<void> _submitForm() async {
                   children: [
                     // Top section with logo
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 30),
+                      padding: const EdgeInsets.symmetric(vertical: 50),
                       child: Container(
-                        height: 80,
-                        width: 80,
+                        height: 100,
+                        width: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              spreadRadius: 1,
+                              blurRadius: 15,
+                              spreadRadius: 2,
                             ),
                           ],
                         ),
                         child: Center(
                           child: Image.asset(
                             'assets/images/academy_logo.png',
-                            height: 60,
-                            width: 60,
+                            height: 70,
+                            width: 70,
                             errorBuilder: (context, error, stackTrace) {
                               return const Icon(
                                 Icons.school,
-                                size: 40,
+                                size: 50,
                                 color: Colors.green,
                               );
                             },
@@ -344,215 +207,197 @@ Future<void> _submitForm() async {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 30),
 
                               // Header text
                               const Text(
-                                'Let\'s start!',
+                                'Welcome Back!',
                                 style: TextStyle(
-                                  fontSize: 24,
+                                  fontSize: 28,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black87,
                                 ),
                               ),
 
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
 
                               const Text(
-                                'Enter your details to register and continue',
+                                'Enter your mobile number to login',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 16,
                                   color: Colors.black54,
                                 ),
                               ),
 
-                              const SizedBox(height: 30),
+                              const SizedBox(height: 50),
 
-                              // Form fields
-                              Expanded(
-                                child: Column(
+                              // Mobile number input field
+                              Container(
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(30),
+                                  color: Colors.white,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 15,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
                                   children: [
-                                    // Name input field
-                                    _buildInputField(
-                                      controller: _nameController,
-                                      hintText: 'Name...',
-                                      keyboardType: TextInputType.name,
-                                    ),
-
-                                    const SizedBox(height: 16),
-
-                                    // Mobile number input field
                                     Container(
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(25),
-                                        color: Colors.white,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.05),
-                                            blurRadius: 8,
-                                            spreadRadius: 1,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                                            child: const Text(
-                                              '+91',
-                                              style: TextStyle(fontSize: 14, color: Colors.black),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Expanded(
-                                            child: TextField(
-                                              controller: _mobileController,
-                                              keyboardType: TextInputType.phone,
-                                              maxLength: 10,
-                                              decoration: const InputDecoration(
-                                                hintText: '00000 00000',
-                                                hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                                                border: InputBorder.none,
-                                                contentPadding: EdgeInsets.symmetric(vertical: 15),
-                                                counterText: '', // Hide character counter
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 16),
-
-                                    // Email input field
-                                    _buildInputField(
-                                      controller: _emailController,
-                                      hintText: 'Email...',
-                                      keyboardType: TextInputType.emailAddress,
-                                    ),
-
-                                    const SizedBox(height: 16),
-
-                                    // Address input field
-                                    _buildInputField(
-                                      controller: _addressController,
-                                      hintText: 'Address...',
-                                      keyboardType: TextInputType.multiline,
-                                    ),
-
-                                    const SizedBox(height: 16),
-
-                                    // Subject dropdown
-                                    Container(
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(25),
-                                        color: Colors.white,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.05),
-                                            blurRadius: 8,
-                                            spreadRadius: 1,
-                                          ),
-                                        ],
-                                      ),
-                                      child: _isLoadingSubjects
-                                          ? Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                                              child: const Row(
-                                                children: [
-                                                  SizedBox(
-                                                    height: 20,
-                                                    width: 20,
-                                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                                  ),
-                                                  SizedBox(width: 10),
-                                                  Text(
-                                                    'Loading subjects...',
-                                                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                                                  ),
-                                                ],
-                                              ),
-                                            )
-                                          : DropdownButtonFormField<String>(
-                                              value: _selectedSubject,
-                                              decoration: const InputDecoration(
-                                                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                                border: InputBorder.none,
-                                              ),
-                                              style: const TextStyle(fontSize: 14, color: Colors.black),
-                                              icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-                                              items: [
-                                                const DropdownMenuItem<String>(
-                                                  value: 'Choose Subject',
-                                                  child: Text('Choose Subject', style: TextStyle(color: Colors.grey)),
-                                                ),
-                                                ..._subjects.map<DropdownMenuItem<String>>((subject) {
-                                                  return DropdownMenuItem<String>(
-                                                    value: subject['name'],
-                                                    child: Text(subject['name']),
-                                                  );
-                                                }).toList(),
-                                              ],
-                                              onChanged: (String? newValue) {
-                                                setState(() {
-                                                  _selectedSubject = newValue!;
-                                                  if (newValue != 'Choose Subject') {
-                                                    // Find the subject ID for the selected name
-                                                    final selectedSubjectData = _subjects.firstWhere(
-                                                      (subject) => subject['name'] == newValue,
-                                                      orElse: () => {'id': ''},
-                                                    );
-                                                    _selectedSubjectId = selectedSubjectData['id'] ?? '';
-                                                  } else {
-                                                    _selectedSubjectId = '';
-                                                  }
-                                                });
-                                              },
-                                            ),
-                                    ),
-
-                                    const Spacer(),
-
-                                    // Continue button
-                                    Container(
-                                      width: double.infinity,
-                                      height: 50,
-                                      margin: const EdgeInsets.only(bottom: 20),
-                                      child: ElevatedButton(
-                                        onPressed: _isLoading ? null : _submitForm,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF0B7C25),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(25),
-                                          ),
-                                          elevation: 5,
-                                          disabledBackgroundColor: Colors.grey,
+                                      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
+                                      child: const Text(
+                                        '+91',
+                                        style: TextStyle(
+                                          fontSize: 16, 
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                        child: _isLoading
-                                            ? const SizedBox(
-                                                height: 20,
-                                                width: 20,
-                                                child: CircularProgressIndicator(
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
-                                              )
-                                            : const Text(
-                                                'Continue',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
+                                      ),
+                                    ),
+                                    Container(
+                                      height: 30,
+                                      width: 1,
+                                      color: Colors.grey.withOpacity(0.3),
+                                    ),
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _mobileController,
+                                        keyboardType: TextInputType.phone,
+                                        maxLength: 10,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          hintText: '00000 00000',
+                                          hintStyle: TextStyle(
+                                            color: Colors.grey, 
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.normal,
+                                          ),
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.symmetric(vertical: 20),
+                                          counterText: '', // Hide character counter
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
+
+                              const SizedBox(height: 40),
+
+                              // Login button
+                              Container(
+                                width: double.infinity,
+                                height: 55,
+                                child: ElevatedButton(
+                                  onPressed: _isLoading ? null : _initiateLogin,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0B7C25),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    elevation: 8,
+                                    shadowColor: const Color(0xFF0B7C25).withOpacity(0.3),
+                                    disabledBackgroundColor: Colors.grey,
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2.5,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Send Login OTP',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 30),
+
+                              // Additional login info
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(
+                                    color: Colors.blue.withOpacity(0.1),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.blue.shade600,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'We\'ll send a 4-digit OTP to verify your mobile number',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.blue.shade700,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const Spacer(),
+
+                              // Footer text
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Don\'t have an account? ',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                        onTap: () {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => RegisterScreen(),
+      ),
+    );
+  },
+                                      child: const Text(
+                                        'Register here',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Color(0xFF0B7C25),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                   
+                                  ],
+                                ),
+                              ),
+                            
                             ],
                           ),
                         ),
@@ -563,37 +408,6 @@ Future<void> _submitForm() async {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String hintText,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          border: InputBorder.none,
         ),
       ),
     );

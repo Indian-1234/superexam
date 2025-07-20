@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Add this import
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:superexam/screens/exam/exam_screen.dart';
@@ -7,10 +8,12 @@ import 'package:superexam/widgets/test_records_grid.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   final String username;
+  final String studentId;
   
   const HomeDashboardScreen({
     Key? key,
     required this.username,
+    required this.studentId
   }) : super(key: key);
 
   @override
@@ -21,22 +24,25 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     with TickerProviderStateMixin {
   List<dynamic> unattemptedQuestions = [];
   bool isLoading = true;
-  String studentId = "6838904486048577663746ac";
   late AnimationController _fadeController;
-  late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
   String selectedFilter = 'All';
   List<String> subjects = ['All'];
   
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
+    
+    // Set status bar to transparent
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
     );
-    _slideController = AnimationController(
+    
+    _fadeController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
@@ -45,25 +51,54 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
     
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
-    
     fetchUnattemptedQuestions();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
-    _slideController.dispose();
     super.dispose();
   }
 
-  Future<void> fetchUnattemptedQuestions() async {
+  Future<void> _refreshAllData() async {
+    try {
+      await fetchUnattemptedQuestions(showLoading: false);
+      _fadeController.reset();
+      await Future.delayed(const Duration(milliseconds: 200));
+      _fadeController.forward();
+    } catch (e) {
+      print('Error refreshing data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Failed to refresh data'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> fetchUnattemptedQuestions({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        isLoading = true;
+      });
+    }
+
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:5000/api/attempt/unattempted/$studentId'),
+        Uri.parse('http://localhost:5000/api/attempt/unattempted/${widget.studentId}'),
       );
 
       if (response.statusCode == 200) {
@@ -71,21 +106,26 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         if (data['success']) {
           setState(() {
             unattemptedQuestions = data['data'];
-            isLoading = false;
-            // Extract unique subjects
+            if (showLoading) {
+              isLoading = false;
+            }
             subjects = ['All', ...unattemptedQuestions
                 .map<String>((q) => q['subject']['name'])
                 .toSet()
                 .toList()];
           });
-          _fadeController.forward();
-          _slideController.forward();
+          
+          if (showLoading) {
+            _fadeController.forward();
+          }
         }
       }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      if (showLoading) {
+        setState(() {
+          isLoading = false;
+        });
+      }
       print('Error fetching unattempted questions: $e');
     }
   }
@@ -104,17 +144,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         pageBuilder: (context, animation, secondaryAnimation) => ExamScreen(
           examTitle: question['title'],
           questionSetId: question['questionId'],
-          studentId: studentId,
+          studentId: widget.studentId,
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: Tween<Offset>(
               begin: const Offset(1.0, 0.0),
               end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeInOutCubic,
-            )),
+            ).animate(animation),
             child: child,
           );
         },
@@ -126,67 +163,50 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   Color _getSubjectColor(String subject) {
     switch (subject.toLowerCase()) {
       case 'social':
-        return const Color(0xFF6C63FF);
+        return const Color(0xFF4CAF50);
       case 'math':
       case 'mathematics':
-        return const Color(0xFFFF6B6B);
+        return const Color(0xFF66BB6A);
       case 'science':
-        return const Color(0xFF4ECDC4);
+        return const Color(0xFF388E3C);
       case 'english':
-        return const Color(0xFFFFE66D);
+        return const Color(0xFF81C784);
       default:
-        return const Color(0xFF95E1D3);
+        return const Color(0xFF4CAF50);
     }
   }
 
-  Widget _buildStatsCard(String title, String value, IconData icon, Color color) {
+  Widget _buildCompactStatsCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withOpacity(0.8),
-            color,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF4CAF50),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF4CAF50).withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+          const Text(
+            'Total Questions: ',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
             ),
-            child: Icon(icon, color: Colors.white, size: 28),
           ),
-          const SizedBox(height: 16),
           Text(
-            value,
+            '${unattemptedQuestions.length}',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 32,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -196,22 +216,22 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
   Widget _buildFilterChips() {
     return SizedBox(
-      height: 50,
+      height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: subjects.length,
         itemBuilder: (context, index) {
           final subject = subjects[index];
           final isSelected = selectedFilter == subject;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.only(right: 12),
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
             child: FilterChip(
               label: Text(
                 subject,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey[700],
+                  color: isSelected ? Colors.white : Colors.black87,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontSize: 14,
                 ),
               ),
               selected: isSelected,
@@ -221,10 +241,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                 });
               },
               backgroundColor: Colors.grey[100],
-              selectedColor: const Color(0xFF6C63FF),
+              selectedColor: const Color(0xFF4CAF50),
               checkmarkColor: Colors.white,
-              elevation: isSelected ? 4 : 0,
-              shadowColor: const Color(0xFF6C63FF).withOpacity(0.3),
+              elevation: isSelected ? 2 : 0,
             ),
           );
         },
@@ -235,176 +254,135 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   Widget _buildQuestionCard(Map<String, dynamic> question, int index) {
     final subjectColor = _getSubjectColor(question['subject']['name']);
     
-    return AnimatedBuilder(
-      animation: _slideAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _slideAnimation.value.dy * (index + 1) * 20),
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => navigateToExam(question),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.grey.withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        // Subject Icon with animated background
-                        Hero(
-                          tag: 'question_${question['questionId']}',
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  subjectColor.withOpacity(0.8),
-                                  subjectColor,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: subjectColor.withOpacity(0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.quiz_rounded,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(width: 16),
-                        
-                        // Question Details
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                question['title'],
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: subjectColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      question['subject']['name'],
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: subjectColor,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '• ${question['unit']['name']}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Animated Arrow
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: 1.0),
-                          duration: Duration(milliseconds: 300 + (index * 100)),
-                          builder: (context, value, child) {
-                            return Transform.translate(
-                              offset: Offset(value * 4, 0),
-                              child: Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                color: subjectColor,
-                                size: 20,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: InkWell(
+          onTap: () => navigateToExam(question),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
+              ],
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.1),
+                width: 1,
               ),
             ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: subjectColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        question['title'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: subjectColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              question['subject']['name'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: subjectColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '• ${question['unit']['name']}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: subjectColor,
+                  size: 16,
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF),
+      backgroundColor: Colors.grey[50],
+      // Remove the default app bar and let content go to the top
+      extendBodyBehindAppBar: true,
       body: Container(
+        // Add gradient background that starts from the very top
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFFF8FAFF),
+              Colors.grey[50]!,
               Colors.white,
             ],
           ),
         ),
         child: SafeArea(
+          // Don't maintain top padding for status bar
+          top: true,
           child: RefreshIndicator(
-            onRefresh: fetchUnattemptedQuestions,
-            color: const Color(0xFF6C63FF),
+            onRefresh: _refreshAllData,
+            color: const Color(0xFF4CAF50),
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Enhanced Header
+                    // Add some top padding to account for status bar
+                    const SizedBox(height: 8),
+                    
+                    // Header
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -415,18 +393,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                               Text(
                                 'Welcome back,',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 widget.username,
                                 style: const TextStyle(
-                                  fontSize: 28,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
+                                  color: Colors.black87,
                                 ),
                               ),
                             ],
@@ -436,189 +413,93 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                           onTap: () {
                             Navigator.push(
                               context,
-                              PageRouteBuilder(
-                                pageBuilder: (context, animation, secondaryAnimation) =>
-                                    const ProfileScreen(),
-                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                  return ScaleTransition(
-                                    scale: Tween<double>(begin: 0.0, end: 1.0).animate(
-                                      CurvedAnimation(parent: animation, curve: Curves.easeInOutBack),
-                                    ),
-                                    child: child,
-                                  );
-                                },
+                              MaterialPageRoute(
+                                builder: (context) => const ProfileScreen(),
                               ),
                             );
                           },
                           child: Container(
-                            width: 50,
-                            height: 50,
+                            width: 40,
+                            height: 40,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF6C63FF),
-                                  Color(0xFF5A52E8),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF6C63FF).withOpacity(0.3),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
+                              color: const Color(0xFF4CAF50),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
-                              Icons.person_rounded,
+                              Icons.person,
                               color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                     const SizedBox(height: 32),
-                    
-                    const TestRecordsGrid(studentId: "6838904486048577663746ac"),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Stats Cards Row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatsCard(
-                            'Total Questions',
-                            '${unattemptedQuestions.length}',
-                            Icons.quiz_rounded,
-                            const Color(0xFF6C63FF),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildStatsCard(
-                            'Subjects',
-                            '${subjects.length - 1}',
-                            Icons.school_rounded,
-                            const Color(0xFF4ECDC4),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                   
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Enhanced Questions Section Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Available Questions',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2D3748),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF6C63FF), Color(0xFF5A52E8)],
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'View All',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              size: 20,
                             ),
                           ),
                         ),
                       ],
                     ),
                     
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
+                    
+                    TestRecordsGrid(studentId: widget.studentId),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Compact Stats Card
+                    _buildCompactStatsCard(),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Questions Section Header
+                    const Text(
+                      'Available Questions',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
                     
                     // Filter Chips
                     if (subjects.length > 2) ...[
                       _buildFilterChips(),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                     ],
                     
-                    // Questions List with enhanced loading and empty states
+                    // Questions List
                     isLoading
                         ? Container(
                             height: 200,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  CircularProgressIndicator(
-                                    color: Color(0xFF6C63FF),
-                                    strokeWidth: 3,
-                                  ),
-                                  SizedBox(height: 16),
-                                  Text(
-                                    'Loading questions...',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF4CAF50),
                               ),
                             ),
                           )
                         : filteredQuestions.isEmpty
                             ? Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(40),
+                                padding: const EdgeInsets.all(32),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.1),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Column(
                                   children: [
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF6C63FF).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Icon(
-                                        Icons.quiz_outlined,
-                                        size: 40,
-                                        color: Color(0xFF6C63FF),
-                                      ),
+                                    Icon(
+                                      Icons.quiz_outlined,
+                                      size: 48,
+                                      color: Colors.grey[400],
                                     ),
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 16),
                                     const Text(
                                       'No questions available',
                                       style: TextStyle(
-                                        fontSize: 20,
+                                        fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF2D3748),
+                                        color: Colors.black87,
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -627,7 +508,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                           ? 'Check back later for new questions'
                                           : 'No questions found for $selectedFilter',
                                       style: TextStyle(
-                                        fontSize: 16,
+                                        fontSize: 14,
                                         color: Colors.grey[600],
                                       ),
                                     ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:no_screenshot/no_screenshot.dart';
+import 'package:screen_protector/screen_protector.dart';
 
 import '../../models/question_modal.dart';
 import 'result_screen.dart';
@@ -31,9 +33,12 @@ class _ExamScreenState extends State<ExamScreen> with ExamTimerMixin {
   String? examid='683b295032cd4b16ddb34e97';
   String? errorMessage;
   Map<String, int> correctOptionIndexMap = {}; // Added this property to track correct options
-String? subjectId;
-String? unitId;
-String? topicsId;
+  String? subjectId;
+  String? unitId;
+  String? topicsId;
+  
+  final _noScreenshot = NoScreenshot.instance;
+  bool _isScreenProtected = false;
   @override
 void initState() {
   super.initState();
@@ -41,6 +46,7 @@ void initState() {
     duration: Duration(hours: 1),
     onTimeUpCallback: _submitExam,
   );
+  _enableScreenProtection();
   _fetchQuestions();
 }
 
@@ -358,7 +364,7 @@ final response = await http.post(
   Uri.parse('http://localhost:5000/api/attempt/submit'),
   headers: {'Content-Type': 'application/json'},
  body: json.encode({
-  'studentId': '6838904486048577663746ac',
+  'studentId': widget.studentId,
   'questionSetId': widget.questionSetId,
   'subjectId': subjectId,
   'unitId': unitId,
@@ -375,6 +381,9 @@ final response = await http.post(
 
       if (response.statusCode == 201) {
         final result = json.decode(response.body);
+        
+        // Disable screen protection before navigating
+        await _disableScreenProtection();
 
         // Navigate to result screen with the submission result
         Navigator.of(context).pushReplacement(
@@ -407,6 +416,60 @@ final response = await http.post(
     if (currentQuestionIndex < questions.length - 1) {
       _navigateToQuestion(currentQuestionIndex + 1);
     }
+  }
+
+  Future<void> _enableScreenProtection() async {
+    try {
+      // Enable screenshot blocking
+      await _noScreenshot.screenshotOff();
+      
+      // Enable screen recording protection
+      await ScreenProtector.protectDataLeakageOn();
+      
+      // Prevent screenshots in app switcher
+      await ScreenProtector.preventScreenshotOn();
+      
+      setState(() {
+        _isScreenProtected = true;
+      });
+      
+      print('Screen protection enabled successfully');
+    } catch (e) {
+      print('Failed to enable screen protection: $e');
+    }
+  }
+
+  Future<void> _disableScreenProtection() async {
+    try {
+      // Disable screenshot blocking
+      await _noScreenshot.screenshotOn();
+      
+      // Disable screen recording protection
+      await ScreenProtector.protectDataLeakageOff();
+      
+      // Allow screenshots
+      await ScreenProtector.preventScreenshotOff();
+      
+      setState(() {
+        _isScreenProtected = false;
+      });
+      
+      print('Screen protection disabled successfully');
+    } catch (e) {
+      print('Failed to disable screen protection: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _disableScreenProtection(); // Clean up protection when leaving screen
+    disposeTimer(); // Your existing timer disposal
+    super.dispose();
+  }
+
+  // Add this method to properly dispose the timer
+  void disposeTimer() {
+    stopTimer(); // Call the timer cancellation method from ExamTimerMixin
   }
 
   @override
@@ -492,7 +555,6 @@ final response = await http.post(
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
                       onPressed: () {
-                        // Show confirmation dialog before leaving
                         showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
@@ -504,8 +566,9 @@ final response = await http.post(
                                 child: const Text('Cancel'),
                               ),
                               TextButton(
-                                onPressed: () {
+                                onPressed: () async {
                                   Navigator.pop(context); // Close dialog
+                                  await _disableScreenProtection(); // Disable protection before exit
                                   Navigator.pop(context); // Exit exam
                                 },
                                 child: const Text('Exit Anyway'),

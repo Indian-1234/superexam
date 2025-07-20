@@ -1,18 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ProfileScreen extends StatefulWidget {
-  final String username;
-  final String mobileNumber;
-  final String email;
-  final String address;
-
-  const ProfileScreen({
-    Key? key,
-    this.username = 'Murugan',
-    this.mobileNumber = '6385691235',
-    this.email = 'Demo@gmail.com',
-    this.address = 'Demo Address',
-  }) : super(key: key);
+  const ProfileScreen({Key? key}) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -23,14 +15,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _mobileController;
   late final TextEditingController _emailController;
   late final TextEditingController _addressController;
+  late final TextEditingController _subjectController;
+  
+  String studentId = '';
+  bool isLoading = true;
+  bool isUpdating = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.username);
-    _mobileController = TextEditingController(text: widget.mobileNumber);
-    _emailController = TextEditingController(text: widget.email);
-    _addressController = TextEditingController(text: widget.address);
+    _nameController = TextEditingController();
+    _mobileController = TextEditingController();
+    _emailController = TextEditingController();
+    _addressController = TextEditingController();
+    _subjectController = TextEditingController();
+    _loadUserData();
   }
 
   @override
@@ -39,14 +38,143 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _mobileController.dispose();
     _emailController.dispose();
     _addressController.dispose();
+    _subjectController.dispose();
     super.dispose();
+  }
+
+Future<void> _loadUserData() async {
+  try {
+    print('Loading user data...');
+    final prefs = await SharedPreferences.getInstance();
+
+    // Handle subject name extraction from stored JSON list
+    String subjectName = '';
+    final subjectData = prefs.getString('student_subject') ?? '';
+    print('Subject Data: $subjectData');
+
+    if (subjectData.isNotEmpty) {
+      try {
+        // Parse the JSON string to a List of Map
+        final List<dynamic> subjectList = json.decode(subjectData);
+        print('Parsed Subject List: $subjectList');
+
+        if (subjectList.isNotEmpty && subjectList.first is Map<String, dynamic>) {
+          subjectName = subjectList.first['name']?.toString() ?? '';
+        }
+      } catch (e) {
+        print('❌ Failed to parse subject JSON: $e');
+        subjectName = subjectData; // fallback
+      }
+    }
+
+    setState(() {
+      studentId = prefs.getString('student_id') ?? '';
+      _nameController.text = prefs.getString('student_name') ?? '';
+      _emailController.text = prefs.getString('student_email') ?? '';
+      _mobileController.text = prefs.getString('student_mobile') ?? '';
+      _addressController.text = prefs.getString('student_address') ?? '';
+      _subjectController.text = subjectName;
+      isLoading = false;
+    });
+  } catch (e) {
+    setState(() {
+      isLoading = false;
+    });
+    _showSnackBar('Error loading user data: $e');
+  }
+}
+
+  // Update student profile via API
+  Future<void> _updateProfile() async {
+    if (studentId.isEmpty) {
+      _showSnackBar('Student ID not found');
+      return;
+    }
+
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      final url = Uri.parse('http://localhost:5000/api/students/$studentId');
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'name': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'mobileNo': _mobileController.text.trim(),
+          'address': _addressController.text.trim(),
+          // Note: Subject is not included in update as it's read-only
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Update local storage with new data
+        await _updateLocalStorage();
+        _showSnackBar('Profile updated successfully');
+      } else {
+        final errorData = json.decode(response.body);
+        _showSnackBar('Update failed: ${errorData['message'] ?? 'Unknown error'}');
+      }
+    } catch (e) {
+      _showSnackBar('Network error: $e');
+    } finally {
+      setState(() {
+        isUpdating = false;
+      });
+    }
+  }
+
+  // Update SharedPreferences with new data
+  Future<void> _updateLocalStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('student_name', _nameController.text.trim());
+    await prefs.setString('student_email', _emailController.text.trim());
+    await prefs.setString('student_mobile', _mobileController.text.trim());
+    await prefs.setString('student_address', _addressController.text.trim());
+    // Note: Subject is not updated as it's read-only
+  }
+
+  // Clear all SharedPreferences and logout
+  Future<void> _logout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); // Clear all stored data
+      
+      // Navigate to WelcomeScreen and remove all previous routes
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/welcome',
+        (Route<dynamic> route) => false,
+      );
+      
+      _showSnackBar('Logged out successfully');
+    } catch (e) {
+      _showSnackBar('Error during logout: $e');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
-      resizeToAvoidBottomInset: true, // Changed to true for better UX
+      resizeToAvoidBottomInset: true,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(56),
         child: AppBar(
@@ -82,12 +210,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
             child: Column(
               children: [
-                // Profile Picture - Smaller
+                // Profile Picture
                 _buildProfilePicture(),
                 
                 const SizedBox(height: 24),
 
-                // Form Fields - Compact
+                // Form Fields
                 _buildCompactField('Name/ID', _nameController),
                 const SizedBox(height: 16),
 
@@ -98,10 +226,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 16),
 
                 _buildCompactField('Address', _addressController),
+                const SizedBox(height: 16),
+
+                _buildCompactField('Subject', _subjectController, null, true), // Disabled field
                 
                 const SizedBox(height: 32),
 
-                // Buttons - Compact
+                // Buttons
                 _buildUpdateButton(),
                 const SizedBox(height: 12),
                 _buildLogoutButton(),
@@ -163,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildCompactField(String label, TextEditingController controller, [TextInputType? keyboardType]) {
+  Widget _buildCompactField(String label, TextEditingController controller, [TextInputType? keyboardType, bool disabled = false]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -179,9 +310,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          style: const TextStyle(fontSize: 13),
+          enabled: !disabled,
+          style: TextStyle(
+            fontSize: 13,
+            color: disabled ? Colors.grey.shade600 : Colors.black,
+          ),
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            filled: disabled,
+            fillColor: disabled ? Colors.grey.shade100 : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide(color: Colors.grey.shade300),
@@ -189,6 +326,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: BorderSide(color: Colors.grey.shade200),
             ),
             focusedBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.all(Radius.circular(6)),
@@ -206,11 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       height: 40,
       child: ElevatedButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile Updated')),
-          );
-        },
+        onPressed: isUpdating ? null : _updateProfile,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1D8E3E),
           shape: RoundedRectangleBorder(
@@ -218,14 +355,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           elevation: 2,
         ),
-        child: const Text(
-          'Update',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-          ),
-        ),
+        child: isUpdating
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Text(
+                'Update',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
       ),
     );
   }
@@ -260,7 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
+          content: const Text('Are you sure you want to logout? This will clear all stored data.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -269,11 +415,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Logged out successfully')),
-                );
-                // Navigate to login screen or handle logout
-                // Navigator.pushReplacementNamed(context, '/login');
+                _logout();
               },
               child: const Text(
                 'Logout',

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:superexam/screens/auth/login_screen.dart';
 import '../../models/user_model.dart';
 import '../../models/test_model.dart';
 import '../../services/api_service.dart';
 import '../../utils/theme.dart';
 import '../../widgets/test_card.dart';
-import '../auth/login_screen.dart';
+import '../auth/register_screen.dart';
 import 'exam_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -165,7 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: const Text('Logout'),
             onTap: () {
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                MaterialPageRoute(builder: (context) => const StudentLoginScreen()),
                     (route) => false,
               );
             },

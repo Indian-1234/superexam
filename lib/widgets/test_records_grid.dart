@@ -167,13 +167,14 @@ class _TestRecordsGridState extends State<TestRecordsGrid> {
           color: Colors.orange,
           onTap: () => _showAttemptsModal(),
         ),
-        _buildRecordItem(
-          icon: Icons.bar_chart,
-          title: 'Accuracy',
-          value: '${performance['accuracyPercentage'].toStringAsFixed(0)}%',
-          color: _getAccuracyColor(performance['accuracyPercentage']),
-          onTap: () => _showPerformanceModal(),
-        ),
+      _buildRecordItem(
+  icon: Icons.bar_chart,
+  title: 'Accuracy',
+  value: '${((performance['accuracyPercentage'] ?? 0) as num).toDouble().toStringAsFixed(0)}%',
+  color: _getAccuracyColor(((performance['accuracyPercentage'] ?? 0) as num).toDouble()),
+  onTap: () => _showPerformanceModal(),
+),
+
       ],
     );
   }
@@ -302,34 +303,41 @@ class _TestRecordsGridState extends State<TestRecordsGrid> {
           )).toList(),
     );
   }
+void _showAttemptsModal() {
+  final detailedStats = studentData!['detailedStats'];
+  final attempts = (detailedStats != null && detailedStats['attemptsSummary'] != null) 
+      ? detailedStats['attemptsSummary'] as List
+      : <Map<String, dynamic>>[];
+      
+  _showCustomModal(
+    title: 'Recent Attempts',
+    icon: Icons.assignment,
+    color: Colors.orange,
+    content: attempts.isEmpty 
+        ? [_buildEmptyState('No attempts recorded yet')]
+        : attempts.map((attempt) => _buildAttemptItem(attempt)).toList(),
+  );
+}
 
-  void _showAttemptsModal() {
-    final attempts = studentData!['detailedStats']['attemptsSummary'] as List;
-    _showCustomModal(
-      title: 'Recent Attempts',
-      icon: Icons.assignment,
-      color: Colors.orange,
-      content: attempts.map((attempt) => _buildAttemptItem(attempt)).toList(),
-    );
-  }
-
-  void _showPerformanceModal() {
-    final performance = studentData!['overallPerformance'];
-    _showCustomModal(
-      title: 'Performance Overview',
-      icon: Icons.bar_chart,
-      color: _getAccuracyColor(performance['accuracyPercentage']),
-      content: [
-        _buildPerformanceItem('Total Questions', performance['totalQuestions'].toString()),
-        _buildPerformanceItem('Correct Answers', performance['correctAnswers'].toString()),
-        _buildPerformanceItem('Wrong Answers', performance['wrongAnswers'].toString()),
-        _buildPerformanceItem('Missed Answers', performance['missedAnswers'].toString()),
-        _buildPerformanceItem('Accuracy', '${performance['accuracyPercentage'].toStringAsFixed(1)}%'),
-        _buildPerformanceItem('Average Score', performance['averageScore'].toStringAsFixed(2)),
-      ],
-    );
-  }
-
+void _showPerformanceModal() {
+  final performance = studentData!['overallPerformance'];
+  final accuracyPercentage = ((performance['accuracyPercentage'] ?? 0) as num).toDouble();
+  final averageScore = ((performance['averageScore'] ?? 0) as num).toDouble();
+  
+  _showCustomModal(
+    title: 'Performance Overview',
+    icon: Icons.bar_chart,
+    color: _getAccuracyColor(accuracyPercentage),
+    content: [
+      _buildPerformanceItem('Total Questions', performance['totalQuestions'].toString()),
+      _buildPerformanceItem('Correct Answers', performance['correctAnswers'].toString()),
+      _buildPerformanceItem('Wrong Answers', performance['wrongAnswers'].toString()),
+      _buildPerformanceItem('Missed Answers', performance['missedAnswers'].toString()),
+      _buildPerformanceItem('Accuracy', '${accuracyPercentage.toStringAsFixed(1)}%'),
+      _buildPerformanceItem('Average Score', averageScore.toStringAsFixed(2)),
+    ],
+  );
+}
   void _showCustomModal({
     required String title,
     required IconData icon,
