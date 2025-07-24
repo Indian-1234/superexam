@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:superexam/config/api_config.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
@@ -96,7 +98,7 @@ Future<void> _loadUserData() async {
     });
 
     try {
-      final url = Uri.parse('http://localhost:5000/api/students/$studentId');
+      final url = Uri.parse('${ApiConfig.baseUrl}api/students/$studentId');
       final response = await http.put(
         url,
         headers: {

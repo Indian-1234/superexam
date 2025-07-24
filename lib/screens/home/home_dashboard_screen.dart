@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add this import
 import 'package:http/http.dart' as http;
+import 'package:superexam/config/api_config.dart';
 import 'dart:convert';
 import 'package:superexam/screens/exam/exam_screen.dart';
 import 'package:superexam/screens/home/profile_screen.dart';
@@ -98,7 +99,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:5000/api/attempt/unattempted/${widget.studentId}'),
+        Uri.parse('${ApiConfig.baseUrl}api/attempt/unattempted/${widget.studentId}'),
       );
 
       if (response.statusCode == 200) {

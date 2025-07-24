@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:superexam/config/api_config.dart';
+
 class TestRecordsGrid extends StatefulWidget {
   final String studentId;
   
@@ -28,7 +30,7 @@ class _TestRecordsGridState extends State<TestRecordsGrid> {
   Future<void> fetchStudentStatus() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:5000/api/students/${widget.studentId}/status'),
+        Uri.parse('${ApiConfig.baseUrl}api/students/${widget.studentId}/status'),
       );
       
       if (response.statusCode == 200) {

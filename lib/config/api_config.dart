@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = 'http://192.168.72.185:5000/api';
+  static const String baseUrl = 'https://admin.adhiyanacademy.in/';
   static const String login = '/institutions/loginstudent';
   static const String studentTests = '/student/tests';
   static const String startTest = '/student/test/{id}/start';

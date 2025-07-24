@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:superexam/config/api_config.dart';
 import 'package:superexam/message/firebase_messaging_service.dart';
 import 'package:superexam/screens/auth/login_screen.dart';
 import 'dart:convert';
@@ -46,7 +47,7 @@ class _LoginScreenState extends State<RegisterScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:5000/api/subjects/getAll'),
+        Uri.parse('${ApiConfig.baseUrl}/api/subjects/getAll'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -175,7 +176,7 @@ class _LoginScreenState extends State<RegisterScreen> {
       // Get FCM token
       String? fcmToken = await FirebaseMessagingService.getToken();
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/students/initiate'),
+        Uri.parse('${ApiConfig.baseUrl}api/students/initiate'),
         headers: {
           'Content-Type': 'application/json',
         },

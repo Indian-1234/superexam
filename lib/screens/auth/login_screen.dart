@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:superexam/config/api_config.dart';
 import 'package:superexam/message/firebase_messaging_service.dart';
 import 'dart:convert';
 
@@ -59,7 +60,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
       String? fcmToken = await FirebaseMessagingService.getToken();
       
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/students/login/initiate'),
+        Uri.parse('${ApiConfig.baseUrl}/api/students/login/initiate'),
         headers: {
           'Content-Type': 'application/json',
         },

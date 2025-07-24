@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:superexam/config/api_config.dart';
 import 'package:superexam/main.dart';
 import 'package:superexam/screens/home/home_dashboard_screen.dart';
 import 'success_screen.dart';
@@ -103,7 +104,7 @@ void _verifyCode() async {
     print('Entered OTP: $_verificationCode');
     
     final response = await http.post(
-      Uri.parse('http://localhost:5000/api/students/login/verify-otp'),
+      Uri.parse('${ApiConfig.baseUrl}api/students/login/verify-otp'),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -275,7 +276,7 @@ await prefs.setString('student_subject', json.encode(student['subject'] ?? []));
 void _resendCode() async {
   try {
     final response = await http.post(
-      Uri.parse('http://localhost:5000/api/students/resend-otp'),
+      Uri.parse('${ApiConfig.baseUrl}api/students/resend-otp'),
       headers: {
         'Content-Type': 'application/json',
       },

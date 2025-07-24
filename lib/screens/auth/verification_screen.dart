@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:superexam/config/api_config.dart';
 import 'success_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
@@ -97,7 +98,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       print('Entered OTP: $_verificationCode');
 
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/students/verify-otp'),
+        Uri.parse('${ApiConfig.baseUrl}api/students/verify-otp'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -168,7 +169,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void _resendCode() async {
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:5000/api/students/resend-otp'),
+        Uri.parse('${ApiConfig.baseUrl}api/students/resend-otp'),
         headers: {
           'Content-Type': 'application/json',
         },

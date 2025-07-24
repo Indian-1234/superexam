@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:no_screenshot/no_screenshot.dart';
 import 'package:screen_protector/screen_protector.dart';
+import 'package:superexam/config/api_config.dart';
 
 import '../../models/question_modal.dart';
 import 'result_screen.dart';
@@ -54,7 +55,7 @@ void initState() {
 Future<void> _fetchQuestions() async {
   try {
     final response = await http.get(
-  Uri.parse('http://localhost:5000/api/questions/${widget.questionSetId}'),
+  Uri.parse('${ApiConfig.baseUrl}api/questions/${widget.questionSetId}'),
     );
     print('Status: ${response.statusCode}, Body: ${response.body} ***********************************************************');
     
@@ -361,7 +362,7 @@ for (int i = 0; i < questions.length; i++) {
 }
 
 final response = await http.post(
-  Uri.parse('http://localhost:5000/api/attempt/submit'),
+  Uri.parse('${ApiConfig.baseUrl}api/attempt/submit'),
   headers: {'Content-Type': 'application/json'},
  body: json.encode({
   'studentId': widget.studentId,
