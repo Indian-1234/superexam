@@ -9,6 +9,14 @@ import '../../models/question_modal.dart';
 import 'result_screen.dart';
 import 'exam_timer_mixin.dart';
 
+// Enum to track question status
+enum QuestionStatus { 
+  unanswered, 
+  answered, 
+  skipped, 
+  current 
+}
+
 class ExamScreen extends StatefulWidget {
   final String examTitle;
   final String questionSetId;
@@ -30,169 +38,179 @@ class _ExamScreenState extends State<ExamScreen> with ExamTimerMixin {
   int currentQuestionIndex = 0;
   List<QuestionModel> questions = [];
   List<int?> userAnswers = [];
+  List<QuestionStatus> questionStatus = [];
   bool isLoading = true;
   String? examid='683b295032cd4b16ddb34e97';
   String? errorMessage;
-  Map<String, int> correctOptionIndexMap = {}; // Added this property to track correct options
+  Map<String, int> correctOptionIndexMap = {};
   String? subjectId;
   String? unitId;
   String? topicsId;
   
+  // Add ScrollController for navigation dots
+  final ScrollController _scrollController = ScrollController();
+  
   final _noScreenshot = NoScreenshot.instance;
   bool _isScreenProtected = false;
+
   @override
-void initState() {
-  super.initState();
-  initializeTimer(
-    duration: Duration(hours: 1),
-    onTimeUpCallback: _submitExam,
-  );
-  _enableScreenProtection();
-  _fetchQuestions();
-}
-
-
-Future<void> _fetchQuestions() async {
-  try {
-    final response = await http.get(
-  Uri.parse('${ApiConfig.baseUrl}api/questions/${widget.questionSetId}'),
+  void initState() {
+    super.initState();
+    initializeTimer(
+      duration: Duration(hours: 1),
+      onTimeUpCallback: _submitExam,
     );
-    print('Status: ${response.statusCode}, Body: ${response.body} ***********************************************************');
-    
-    if (response.statusCode == 200) {
-      final questionData = json.decode(response.body);
+    _enableScreenProtection();
+    _fetchQuestions();
+  }
+
+  Future<void> _fetchQuestions() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}api/questions/${widget.questionSetId}'),
+      );
+      print('Status: ${response.statusCode}, Body: ${response.body} ***********************************************************');
       
-      setState(() {
-        // Reset correctOptionIndexMap
-        correctOptionIndexMap = {};
+      if (response.statusCode == 200) {
+        final questionData = json.decode(response.body);
         
-        // Handle the API response structure with nested data
-        if (questionData != null && 
-            questionData.containsKey('data') && 
-            questionData['data'].containsKey('questions') && 
-            questionData['data']['questions'] is List) {
+        setState(() {
+          // Reset correctOptionIndexMap
+          correctOptionIndexMap = {};
           
-          // Extract subject, unit, and topics IDs from the response
-          if (questionData['data'].containsKey('subject') && questionData['data']['subject']['_id'] != null) {
-            subjectId = questionData['data']['subject']['_id'];
+          // Handle the API response structure with nested data
+          if (questionData != null && 
+              questionData.containsKey('data') && 
+              questionData['data'].containsKey('questions') && 
+              questionData['data']['questions'] is List) {
+            
+            // Extract subject, unit, and topics IDs from the response
+            if (questionData['data'].containsKey('subject') && questionData['data']['subject']['_id'] != null) {
+              subjectId = questionData['data']['subject']['_id'];
+            }
+            if (questionData['data'].containsKey('unit') && questionData['data']['unit']['_id'] != null) {
+              unitId = questionData['data']['unit']['_id'];
+            }
+            
+            if (questionData['data'].containsKey('topics') && questionData['data']['topics'] != null) {
+              topicsId = questionData['data']['topics'].toString();
+            }
+            
+            final questionsList = questionData['data']['questions'] as List;
+            
+            questions = questionsList.map((item) {
+              // Extract options as a list of strings
+              List<String> optionTexts = [];
+              int correctIndex = -1;
+
+              if (item.containsKey('options') && item['options'] is List) {
+                final options = item['options'] as List;
+                optionTexts = options.map((option) => option['text'].toString()).toList();
+
+                // Find the correct option index
+                for (int i = 0; i < options.length; i++) {
+                  if (options[i]['isCorrect'] == true) {
+                    correctIndex = i;
+                    correctOptionIndexMap[item['_id']] = i;
+                    break;
+                  }
+                }
+              }
+
+              return QuestionModel(
+                id: item['_id'] ?? '',
+                question: item['questionText'] ?? '',
+                options: optionTexts,
+                correctOptionIndex: correctIndex,
+              );
+            }).toList();
           }
-          if (questionData['data'].containsKey('unit') && questionData['data']['unit']['_id'] != null) {
-            unitId = questionData['data']['unit']['_id'];
+          // Check if it's a direct list of questions
+          else if (questionData is List) {
+            questions = questionData.map((item) {
+              // Extract options as a list of strings
+              List<String> optionTexts = [];
+              int correctIndex = -1;
+              
+              if (item.containsKey('options') && item['options'] is List) {
+                final options = item['options'] as List;
+                optionTexts = options.map((option) => option['text'].toString()).toList();
+                
+                // Find the correct option index
+                for (int i = 0; i < options.length; i++) {
+                  if (options[i]['isCorrect'] == true) {
+                    correctIndex = i;
+                    correctOptionIndexMap[item['_id']] = i;
+                    break;
+                  }
+                }
+              }
+              
+              return QuestionModel(
+                id: item['_id'] ?? item['questionId'] ?? '',
+                question: item['questionText'] ?? '',
+                options: optionTexts,
+                correctOptionIndex: correctIndex,
+              );
+            }).toList();
+          }
+          // If it's wrapped in an object structure but not under 'data'
+          else if (questionData != null && questionData.containsKey('questions') && questionData['questions'] is List) {
+            questions = (questionData['questions'] as List).map((item) {
+              // Extract options as a list of strings
+              List<String> optionTexts = [];
+              int correctIndex = -1;
+              
+              if (item.containsKey('options') && item['options'] is List) {
+                final options = item['options'] as List;
+                optionTexts = options.map((option) => option['text'].toString()).toList();
+                
+                // Find the correct option index
+                for (int i = 0; i < options.length; i++) {
+                  if (options[i]['isCorrect'] == true) {
+                    correctIndex = i;
+                    correctOptionIndexMap[item['_id']] = i;
+                    break;
+                  }
+                }
+              }
+              
+              return QuestionModel(
+                id: item['_id'] ?? item['questionId'] ?? '',
+                question: item['questionText'] ?? '',
+                options: optionTexts,
+                correctOptionIndex: correctIndex,
+              );
+            }).toList();
+          }
+          // Keep your existing recursive extraction as fallback
+          else {
+            Map<String, dynamic> mapData = questionData;
+            _extractQuestionsRecursively(mapData);
           }
           
-          if (questionData['data'].containsKey('topics') && questionData['data']['topics'] != null) {
-  topicsId = questionData['data']['topics'].toString();
-}
-          
-          final questionsList = questionData['data']['questions'] as List;
-          
-          questions = questionsList.map((item) {
-            // Extract options as a list of strings
-            List<String> optionTexts = [];
-            int correctIndex = -1;
-
-            if (item.containsKey('options') && item['options'] is List) {
-              final options = item['options'] as List;
-              optionTexts = options.map((option) => option['text'].toString()).toList();
-
-              // Find the correct option index
-              for (int i = 0; i < options.length; i++) {
-                if (options[i]['isCorrect'] == true) {
-                  correctIndex = i;
-                  correctOptionIndexMap[item['_id']] = i;
-                  break;
-                }
-              }
-            }
-
-            return QuestionModel(
-              id: item['_id'] ?? '',
-              question: item['questionText'] ?? '',
-              options: optionTexts,
-              correctOptionIndex: correctIndex,
-            );
-          }).toList();
-        }
-        // Check if it's a direct list of questions
-        else if (questionData is List) {
-          questions = questionData.map((item) {
-            // Extract options as a list of strings
-            List<String> optionTexts = [];
-            int correctIndex = -1;
-            
-            if (item.containsKey('options') && item['options'] is List) {
-              final options = item['options'] as List;
-              optionTexts = options.map((option) => option['text'].toString()).toList();
-              
-              // Find the correct option index
-              for (int i = 0; i < options.length; i++) {
-                if (options[i]['isCorrect'] == true) {
-                  correctIndex = i;
-                  correctOptionIndexMap[item['_id']] = i;
-                  break;
-                }
-              }
-            }
-            
-            return QuestionModel(
-              id: item['_id'] ?? item['questionId'] ?? '',
-              question: item['questionText'] ?? '',
-              options: optionTexts,
-              correctOptionIndex: correctIndex,
-            );
-          }).toList();
-        }
-        // If it's wrapped in an object structure but not under 'data'
-        else if (questionData != null && questionData.containsKey('questions') && questionData['questions'] is List) {
-          questions = (questionData['questions'] as List).map((item) {
-            // Extract options as a list of strings
-            List<String> optionTexts = [];
-            int correctIndex = -1;
-            
-            if (item.containsKey('options') && item['options'] is List) {
-              final options = item['options'] as List;
-              optionTexts = options.map((option) => option['text'].toString()).toList();
-              
-              // Find the correct option index
-              for (int i = 0; i < options.length; i++) {
-                if (options[i]['isCorrect'] == true) {
-                  correctIndex = i;
-                  correctOptionIndexMap[item['_id']] = i;
-                  break;
-                }
-              }
-            }
-            
-            return QuestionModel(
-              id: item['_id'] ?? item['questionId'] ?? '',
-              question: item['questionText'] ?? '',
-              options: optionTexts,
-              correctOptionIndex: correctIndex,
-            );
-          }).toList();
-        }
-        // Keep your existing recursive extraction as fallback
-        else {
-          Map<String, dynamic> mapData = questionData;
-          _extractQuestionsRecursively(mapData);
-        }
-        
-        userAnswers = List.filled(questions.length, null);
-        isLoading = false;
-      });
-    } else {
+          // Initialize arrays with proper length
+          userAnswers = List.filled(questions.length, null);
+          questionStatus = List.filled(questions.length, QuestionStatus.unanswered);
+          if (questions.isNotEmpty) {
+            questionStatus[0] = QuestionStatus.current;
+          }
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          errorMessage = 'Failed to load questions. Status: ${response.statusCode}';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        errorMessage = 'Failed to load questions. Status: ${response.statusCode}';
+        errorMessage = 'Error: ${e.toString()}';
         isLoading = false;
       });
     }
-  } catch (e) {
-    setState(() {
-      errorMessage = 'Error: ${e.toString()}';
-      isLoading = false;
-    });
   }
-}
+
   // Recursive function to extract questions from any JSON structure
   void _extractQuestionsRecursively(dynamic data) {
     if (data is Map<String, dynamic>) {
@@ -273,14 +291,57 @@ Future<void> _fetchQuestions() async {
   void _selectAnswer(int answerIndex) {
     setState(() {
       userAnswers[currentQuestionIndex] = answerIndex;
+      questionStatus[currentQuestionIndex] = QuestionStatus.answered;
     });
   }
 
   void _navigateToQuestion(int index) {
     if (index >= 0 && index < questions.length) {
       setState(() {
+        // Update previous question status
+        if (questionStatus[currentQuestionIndex] == QuestionStatus.current) {
+          if (userAnswers[currentQuestionIndex] != null) {
+            questionStatus[currentQuestionIndex] = QuestionStatus.answered;
+          } else {
+            questionStatus[currentQuestionIndex] = QuestionStatus.unanswered;
+          }
+        }
+        
         currentQuestionIndex = index;
+        
+        // Update current question status
+        if (userAnswers[currentQuestionIndex] != null) {
+          questionStatus[currentQuestionIndex] = QuestionStatus.answered;
+        } else if (questionStatus[currentQuestionIndex] == QuestionStatus.skipped) {
+          // Keep skipped status
+        } else {
+          questionStatus[currentQuestionIndex] = QuestionStatus.current;
+        }
       });
+      
+      // Auto scroll to current question
+      _scrollToCurrentQuestion();
+    }
+  }
+
+  void _scrollToCurrentQuestion() {
+    const double itemWidth = 48.0; // 40 width + 8 margin
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double maxVisibleItems = screenWidth / itemWidth;
+    
+    if (currentQuestionIndex > maxVisibleItems / 2) {
+      final double scrollPosition = (currentQuestionIndex - maxVisibleItems / 2) * itemWidth;
+      _scrollController.animateTo(
+        scrollPosition,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -348,36 +409,36 @@ Future<void> _fetchQuestions() async {
       }
 
       int correctCount = 0;
-int wrongCount = 0;
-int missedCount = 0;
+      int wrongCount = 0;
+      int missedCount = 0;
 
-for (int i = 0; i < questions.length; i++) {
-  if (userAnswers[i] == null) {
-    missedCount++;
-  } else if (userAnswers[i] == correctOptionIndexMap[questions[i].id]) {
-    correctCount++;
-  } else {
-    wrongCount++;
-  }
-}
+      for (int i = 0; i < questions.length; i++) {
+        if (userAnswers[i] == null) {
+          missedCount++;
+        } else if (userAnswers[i] == correctOptionIndexMap[questions[i].id]) {
+          correctCount++;
+        } else {
+          wrongCount++;
+        }
+      }
 
-final response = await http.post(
-  Uri.parse('${ApiConfig.baseUrl}api/attempt/submit'),
-  headers: {'Content-Type': 'application/json'},
- body: json.encode({
-  'studentId': widget.studentId,
-  'questionSetId': widget.questionSetId,
-  'subjectId': subjectId,
-  'unitId': unitId,
-  'topicsId': topicsId,
-  'answers': formattedAnswers,
-  'correctAnswersCount': correctCount,
-  'wrongAnswersCount': wrongCount,
-  'missedAnswersCount': missedCount,
-  'totalQuestionsCount': questions.length,
-  ...getTimeData(), // This adds startTime and endTime
-}),
-);
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}api/attempt/submit'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'studentId': widget.studentId,
+          'questionSetId': widget.questionSetId,
+          'subjectId': subjectId,
+          'unitId': unitId,
+          'topicsId': topicsId,
+          'answers': formattedAnswers,
+          'correctAnswersCount': correctCount,
+          'wrongAnswersCount': wrongCount,
+          'missedAnswersCount': missedCount,
+          'totalQuestionsCount': questions.length,
+          ...getTimeData(), // This adds startTime and endTime
+        }),
+      );
       print('Status: ${formattedAnswers}, Body: ${response.body} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^');
 
       if (response.statusCode == 201) {
@@ -414,9 +475,40 @@ final response = await http.post(
   }
 
   void _skipQuestion() {
+    setState(() {
+      // Mark current question as skipped
+      questionStatus[currentQuestionIndex] = QuestionStatus.skipped;
+      // Clear any previous answer for this question
+      userAnswers[currentQuestionIndex] = null;
+    });
+    
     if (currentQuestionIndex < questions.length - 1) {
       _navigateToQuestion(currentQuestionIndex + 1);
     }
+  }
+
+  Color _getQuestionStatusColor(int index) {
+    if (currentQuestionIndex == index) {
+      return Colors.green;
+    }
+    
+    switch (questionStatus[index]) {
+      case QuestionStatus.answered:
+        return Colors.blue.shade300;
+      case QuestionStatus.skipped:
+        return Colors.orange;
+      case QuestionStatus.unanswered:
+        return Colors.grey.shade200;
+      case QuestionStatus.current:
+        return Colors.green;
+    }
+  }
+
+  Color _getQuestionTextColor(int index) {
+    if (currentQuestionIndex == index || questionStatus[index] == QuestionStatus.answered) {
+      return Colors.white;
+    }
+    return Colors.black;
   }
 
   Future<void> _enableScreenProtection() async {
@@ -447,7 +539,7 @@ final response = await http.post(
       
       // Disable screen recording protection
       await ScreenProtector.protectDataLeakageOff();
-      
+        
       // Allow screenshots
       await ScreenProtector.preventScreenshotOff();
       
@@ -464,6 +556,7 @@ final response = await http.post(
   @override
   void dispose() {
     _disableScreenProtection(); // Clean up protection when leaving screen
+    _scrollController.dispose(); // Dispose scroll controller
     disposeTimer(); // Your existing timer disposal
     super.dispose();
   }
@@ -471,6 +564,30 @@ final response = await http.post(
   // Add this method to properly dispose the timer
   void disposeTimer() {
     stopTimer(); // Call the timer cancellation method from ExamTimerMixin
+  }
+
+  Widget _buildStatusLegend(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -580,29 +697,28 @@ final response = await http.post(
                       },
                     ),
                     const SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          widget.examTitle,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      buildTimerWidget(),
-                 
-                  
+                    Expanded(
+                      child: Text(
+                        widget.examTitle,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    buildTimerWidget(),
                   ],
                 ),
               ),
 
               const SizedBox(height: 20),
 
-              // Question navigation dots
+              // Question navigation dots with auto-scroll
               SizedBox(
-                height: 40,
+                height: 50,
                 child: ListView.builder(
+                  controller: _scrollController,
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: questions.length,
@@ -615,26 +731,44 @@ final response = await http.post(
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: currentQuestionIndex == index
-                              ? Colors.green
-                              : userAnswers[index] != null
-                              ? Colors.grey.shade300
-                              : Colors.grey.shade200,
+                          color: _getQuestionStatusColor(index),
+                          boxShadow: currentQuestionIndex == index
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.green.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
+                                ]
+                              : null,
                         ),
                         child: Center(
                           child: Text(
                             '${index + 1}',
                             style: TextStyle(
-                              color: currentQuestionIndex == index
-                                  ? Colors.white
-                                  : Colors.black,
+                              color: _getQuestionTextColor(index),
                               fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
                         ),
                       ),
                     );
                   },
+                ),
+              ),
+
+              // Status legend
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildStatusLegend(Colors.green, 'Current'),
+                    _buildStatusLegend(Colors.blue.shade300, 'Answered'),
+                    _buildStatusLegend(Colors.orange, 'Skipped'),
+                    _buildStatusLegend(Colors.grey.shade200, 'Unanswered'),
+                  ],
                 ),
               ),
 
@@ -647,19 +781,33 @@ final response = await http.post(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Que ${currentQuestionIndex + 1}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Question ${currentQuestionIndex + 1} of ${questions.length}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 16),
                       Text(
                         questions[currentQuestionIndex].question,
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
+                          height: 1.4,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -673,50 +821,89 @@ final response = await http.post(
                                   (index) {
                                 final optionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
                                 final optionLabel = index < optionLabels.length ? optionLabels[index] : (index + 1).toString();
+                                final isSelected = userAnswers[currentQuestionIndex] == index;
 
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12.0),
                                   child: GestureDetector(
                                     onTap: () => _selectAnswer(index),
-                                    child: Container(
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
                                       width: double.infinity,
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 16,
                                         horizontal: 16,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: userAnswers[currentQuestionIndex] == index
+                                        color: isSelected
                                             ? const Color(0xFFE5F7E6)
                                             : Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: userAnswers[currentQuestionIndex] == index
+                                          color: isSelected
                                               ? Colors.green
                                               : Colors.grey.shade300,
-                                          width: 1,
+                                          width: isSelected ? 2 : 1,
                                         ),
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: Colors.green.withOpacity(0.2),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ]
+                                            : [
+                                                BoxShadow(
+                                                  color: Colors.grey.withOpacity(0.1),
+                                                  blurRadius: 2,
+                                                  offset: const Offset(0, 1),
+                                                ),
+                                              ],
                                       ),
                                       child: Row(
                                         children: [
-                                          Text(
-                                            '$optionLabel) ',
-                                            style: TextStyle(
-                                              color: userAnswers[currentQuestionIndex] == index
+                                          Container(
+                                            width: 28,
+                                            height: 28,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: isSelected
                                                   ? Colors.green
-                                                  : Colors.black,
-                                              fontWeight: FontWeight.w500,
+                                                  : Colors.grey.shade200,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                optionLabel,
+                                                style: TextStyle(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : Colors.black87,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
                                             ),
                                           ),
+                                          const SizedBox(width: 12),
                                           Expanded(
                                             child: Text(
                                               questions[currentQuestionIndex].options[index],
                                               style: TextStyle(
-                                                color: userAnswers[currentQuestionIndex] == index
-                                                    ? Colors.green
-                                                    : Colors.black,
+                                                color: isSelected
+                                                    ? Colors.green.shade800
+                                                    : Colors.black87,
+                                                fontSize: 16,
+                                                height: 1.3,
                                               ),
                                             ),
                                           ),
+                                          if (isSelected)
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Colors.green,
+                                              size: 20,
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -727,15 +914,24 @@ final response = await http.post(
                           ),
                         ),
                       ),
-                    
                     ],
                   ),
                 ),
               ),
 
               // Bottom buttons
-              Padding(
+              Container(
                 padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -744,13 +940,17 @@ final response = await http.post(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          side: BorderSide(color: Colors.grey.shade300),
+                          side: const BorderSide(color: Colors.orange, width: 2),
                         ),
                         child: const Text(
                           'Skip',
-                          style: TextStyle(color: Colors.black87),
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
@@ -762,14 +962,19 @@ final response = await http.post(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: Colors.green,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          elevation: 2,
                         ),
                         child: Text(
                           currentQuestionIndex == questions.length - 1
                               ? 'Complete Exam'
                               : 'Save & Next',
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
@@ -778,7 +983,6 @@ final response = await http.post(
               ),
             ],
           ),
-        
         ),
       ),
     );

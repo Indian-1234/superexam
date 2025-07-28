@@ -47,7 +47,7 @@ class _LoginScreenState extends State<RegisterScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/subjects/getAll'),
+        Uri.parse('${ApiConfig.baseUrl}api/subjects/getAll'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -380,40 +380,35 @@ class _LoginScreenState extends State<RegisterScreen> {
                                           ),
                                         ],
                                       ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 20, vertical: 15),
-                                            child: const Text(
-                                              '+91',
-                                              style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.black),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Expanded(
-                                            child: TextField(
-                                              controller: _mobileController,
-                                              keyboardType: TextInputType.phone,
-                                              maxLength: 10,
-                                              decoration: const InputDecoration(
-                                                hintText: '00000 00000',
-                                                hintStyle: TextStyle(
-                                                    color: Colors.grey,
-                                                    fontSize: 14),
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                        vertical: 15),
-                                                counterText:
-                                                    '', // Hide character counter
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                   child: Row(
+  children: [
+    Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      child: const Text(
+        '+91',
+        style: TextStyle(fontSize: 14, color: Colors.black),
+      ),
+    ),
+    const SizedBox(width: 5),
+    Expanded(
+      child: TextField(
+        controller: _mobileController,
+        keyboardType: TextInputType.phone,
+        maxLength: 10,
+        decoration: const InputDecoration(
+          hintText: '00000 00000',
+          hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+          border: InputBorder.none,
+          focusedBorder: InputBorder.none, // 👈 removes blue border
+          enabledBorder: InputBorder.none, // 👈 removes gray border
+          contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 10), // 👈 add inner padding if needed
+          counterText: '', // Hide character counter
+        ),
+      ),
+    ),
+  ],
+),
+
                                     ),
 
                                     const SizedBox(height: 16),

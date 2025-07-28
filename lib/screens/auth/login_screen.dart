@@ -60,7 +60,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
       String? fcmToken = await FirebaseMessagingService.getToken();
       
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/students/login/initiate'),
+        Uri.parse('${ApiConfig.baseUrl}api/students/login/initiate'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -267,27 +267,30 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                                     ),
                                     const SizedBox(width: 15),
                                     Expanded(
-                                      child: TextField(
-                                        controller: _mobileController,
-                                        keyboardType: TextInputType.phone,
-                                        maxLength: 10,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        decoration: const InputDecoration(
-                                          hintText: '00000 00000',
-                                          hintStyle: TextStyle(
-                                            color: Colors.grey, 
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.normal,
-                                          ),
-                                          border: InputBorder.none,
-                                          contentPadding: EdgeInsets.symmetric(vertical: 20),
-                                          counterText: '', // Hide character counter
-                                        ),
-                                      ),
-                                    ),
+  child: TextField(
+    controller: _mobileController,
+    keyboardType: TextInputType.phone,
+    maxLength: 10,
+    style: const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+    ),
+    decoration: const InputDecoration(
+      hintText: '00000 00000',
+      hintStyle: TextStyle(
+        color: Colors.grey, 
+        fontSize: 16,
+        fontWeight: FontWeight.normal,
+      ),
+      border: InputBorder.none,
+      focusedBorder: InputBorder.none, // 👈 removes blue border
+      enabledBorder: InputBorder.none, // 👈 also keep this for consistency
+      contentPadding: EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+      counterText: '', // Hide character counter
+    ),
+  ),
+),
+
                                   ],
                                 ),
                               ),

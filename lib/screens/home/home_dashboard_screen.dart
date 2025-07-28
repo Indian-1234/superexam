@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Add this import
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:superexam/config/api_config.dart';
 import 'dart:convert';
 import 'package:superexam/screens/exam/exam_screen.dart';
 import 'package:superexam/screens/home/profile_screen.dart';
+import 'package:superexam/screens/home/attempt_details_screen.dart';
 import 'package:superexam/widgets/test_records_grid.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
@@ -24,17 +25,20 @@ class HomeDashboardScreen extends StatefulWidget {
 class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     with TickerProviderStateMixin {
   List<dynamic> unattemptedQuestions = [];
-  bool isLoading = true;
+  List<dynamic> completedQuestions = [];
+  bool isLoadingAvailable = true;
+  bool isLoadingCompleted = true;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+  late TabController _tabController;
   String selectedFilter = 'All';
-  List<String> subjects = ['All'];
+  List<String> availableSubjects = ['All'];
+  List<String> completedSubjects = ['All'];
   
   @override
   void initState() {
     super.initState();
     
-    // Set status bar to transparent
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -42,6 +46,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         statusBarBrightness: Brightness.light,
       ),
     );
+    
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {
+          selectedFilter = 'All'; // Reset filter when switching tabs
+        });
+      }
+    });
     
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 600),
@@ -53,17 +66,22 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     );
     
     fetchUnattemptedQuestions();
+    fetchCompletedQuestions();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   Future<void> _refreshAllData() async {
     try {
-      await fetchUnattemptedQuestions(showLoading: false);
+      await Future.wait([
+        fetchUnattemptedQuestions(showLoading: false),
+        fetchCompletedQuestions(showLoading: false),
+      ]);
       _fadeController.reset();
       await Future.delayed(const Duration(milliseconds: 200));
       _fadeController.forward();
@@ -93,7 +111,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   Future<void> fetchUnattemptedQuestions({bool showLoading = true}) async {
     if (showLoading) {
       setState(() {
-        isLoading = true;
+        isLoadingAvailable = true;
       });
     }
 
@@ -108,9 +126,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           setState(() {
             unattemptedQuestions = data['data'];
             if (showLoading) {
-              isLoading = false;
+              isLoadingAvailable = false;
             }
-            subjects = ['All', ...unattemptedQuestions
+            availableSubjects = ['All', ...unattemptedQuestions
                 .map<String>((q) => q['subject']['name'])
                 .toSet()
                 .toList()];
@@ -124,18 +142,61 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     } catch (e) {
       if (showLoading) {
         setState(() {
-          isLoading = false;
+          isLoadingAvailable = false;
         });
       }
       print('Error fetching unattempted questions: $e');
     }
   }
 
-  List<dynamic> get filteredQuestions {
-    if (selectedFilter == 'All') return unattemptedQuestions;
-    return unattemptedQuestions
+  Future<void> fetchCompletedQuestions({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        isLoadingCompleted = true;
+      });
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}api/attempt/completed/${widget.studentId}'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success']) {
+          setState(() {
+            completedQuestions = data['data'];
+            if (showLoading) {
+              isLoadingCompleted = false;
+            }
+            completedSubjects = ['All', ...completedQuestions
+                .map<String>((q) => q['subject']['name'])
+                .toSet()
+                .toList()];
+          });
+        }
+      }
+    } catch (e) {
+      if (showLoading) {
+        setState(() {
+          isLoadingCompleted = false;
+        });
+      }
+      print('Error fetching completed questions: $e');
+    }
+  }
+
+  List<dynamic> get currentFilteredQuestions {
+    final currentTab = _tabController.index;
+    final questions = currentTab == 0 ? unattemptedQuestions : completedQuestions;
+    if (selectedFilter == 'All') return questions;
+    return questions
         .where((q) => q['subject']['name'] == selectedFilter)
         .toList();
+  }
+
+  List<String> get currentSubjects {
+    return _tabController.index == 0 ? availableSubjects : completedSubjects;
   }
 
   void navigateToExam(Map<String, dynamic> question) {
@@ -146,6 +207,28 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           examTitle: question['title'],
           questionSetId: question['questionId'],
           studentId: widget.studentId,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1.0, 0.0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+  }
+
+  void navigateToAttemptDetails(Map<String, dynamic> attempt) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => AttemptDetailsScreen(
+          attemptId: attempt['attemptId'],
+          title: attempt['title'],
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
@@ -178,6 +261,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   }
 
   Widget _buildCompactStatsCard() {
+    final currentTab = _tabController.index;
+    final count = currentTab == 0 ? unattemptedQuestions.length : completedQuestions.length;
+    final label = currentTab == 0 ? 'Available Questions' : 'Completed Questions';
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -194,16 +281,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
-            'Total Questions: ',
-            style: TextStyle(
+          Text(
+            '$label: ',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
           Text(
-            '${unattemptedQuestions.length}',
+            '$count',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -220,9 +307,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: subjects.length,
+        itemCount: currentSubjects.length,
         itemBuilder: (context, index) {
-          final subject = subjects[index];
+          final subject = currentSubjects[index];
           final isSelected = selectedFilter == subject;
           return Container(
             margin: const EdgeInsets.only(right: 8),
@@ -252,7 +339,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     );
   }
 
-  Widget _buildQuestionCard(Map<String, dynamic> question, int index) {
+  Widget _buildAvailableQuestionCard(Map<String, dynamic> question, int index) {
     final subjectColor = _getSubjectColor(question['subject']['name']);
     
     return FadeTransition(
@@ -349,14 +436,143 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     );
   }
 
+  Widget _buildCompletedQuestionCard(Map<String, dynamic> attempt, int index) {
+    final subjectColor = _getSubjectColor(attempt['subject']['name']);
+    final percentage = attempt['percentage'] ?? 0;
+    
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: InkWell(
+          onTap: () => navigateToAttemptDetails(attempt),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: subjectColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        attempt['title'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: subjectColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              attempt['subject']['name'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: subjectColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '• ${attempt['unit']['name']}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: percentage >= 60 
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$percentage%',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: percentage >= 60 ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${attempt['correctAnswers']}/${attempt['totalQuestions']}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: subjectColor,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      // Remove the default app bar and let content go to the top
       extendBodyBehindAppBar: true,
       body: Container(
-        // Add gradient background that starts from the very top
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -368,167 +584,249 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
           ),
         ),
         child: SafeArea(
-          // Don't maintain top padding for status bar
           top: true,
           child: RefreshIndicator(
             onRefresh: _refreshAllData,
             color: const Color(0xFF4CAF50),
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Add some top padding to account for status bar
-                    const SizedBox(height: 8),
-                    
-                    // Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Welcome back,',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Welcome back,',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                widget.username,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.username,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ProfileScreen(),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF4CAF50),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 20,
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    TestRecordsGrid(studentId: widget.studentId),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Compact Stats Card
-                    _buildCompactStatsCard(),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Questions Section Header
-                    const Text(
-                      'Available Questions',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ProfileScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 24),
+                      TestRecordsGrid(studentId: widget.studentId),
+                      const SizedBox(height: 24),
+                      _buildCompactStatsCard(),
+                      const SizedBox(height: 24),
+                      
+                      // Tab Bar
+                    // Replace your existing Tab Bar section with this improved version
+
+Container(
+  height: 50,
+  decoration: BoxDecoration(
+    color: Colors.grey[100],
+    borderRadius: BorderRadius.circular(25),
+    border: Border.all(color: Colors.grey[300]!, width: 0.5),
+  ),
+  child: TabBar(
+    controller: _tabController,
+    indicator: BoxDecoration(
+      color: const Color(0xFF4CAF50),
+      borderRadius: BorderRadius.circular(25),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF4CAF50).withOpacity(0.3),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    indicatorSize: TabBarIndicatorSize.tab,
+    indicatorPadding: const EdgeInsets.all(4),
+    labelColor: Colors.white,
+    unselectedLabelColor: Colors.grey[600],
+    labelStyle: const TextStyle(
+      fontWeight: FontWeight.w600,
+      fontSize: 15,
+    ),
+    unselectedLabelStyle: const TextStyle(
+      fontWeight: FontWeight.w500,
+      fontSize: 15,
+    ),
+    splashFactory: NoSplash.splashFactory,
+    overlayColor: MaterialStateProperty.all(Colors.transparent),
+    dividerColor: Colors.transparent,
+    tabs: const [
+      Tab(
+        child: Text(
+          'Available',
+          textAlign: TextAlign.center,
+        ),
+      ),
+      Tab(
+        child: Text(
+          'Completed',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    ],
+  ),
+),
                     
-                    const SizedBox(height: 16),
-                    
-                    // Filter Chips
-                    if (subjects.length > 2) ...[
-                      _buildFilterChips(),
-                      const SizedBox(height: 16),
                     ],
-                    
-                    // Questions List
-                    isLoading
-                        ? Container(
-                            height: 200,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                color: Color(0xFF4CAF50),
-                              ),
-                            ),
-                          )
-                        : filteredQuestions.isEmpty
-                            ? Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(32),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.quiz_outlined,
-                                      size: 48,
-                                      color: Colors.grey[400],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'No questions available',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      selectedFilter == 'All' 
-                                          ? 'Check back later for new questions'
-                                          : 'No questions found for $selectedFilter',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: filteredQuestions.length,
-                                itemBuilder: (context, index) {
-                                  return _buildQuestionCard(filteredQuestions[index], index);
-                                },
-                              ),
-                  ],
+                  ),
                 ),
-              ),
+                
+                // Tab Content
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Available Questions Tab
+                      _buildQuestionsTab(
+                        isLoading: isLoadingAvailable,
+                        questions: currentFilteredQuestions,
+                        emptyMessage: 'No available questions',
+                        emptySubMessage: selectedFilter == 'All' 
+                            ? 'Check back later for new questions'
+                            : 'No questions found for $selectedFilter',
+                        buildCard: _buildAvailableQuestionCard,
+                      ),
+                      
+                      // Completed Questions Tab
+                      _buildQuestionsTab(
+                        isLoading: isLoadingCompleted,
+                        questions: currentFilteredQuestions,
+                        emptyMessage: 'No completed questions',
+                        emptySubMessage: selectedFilter == 'All' 
+                            ? 'Start taking some quizzes!'
+                            : 'No completed questions for $selectedFilter',
+                        buildCard: _buildCompletedQuestionCard,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionsTab({
+    required bool isLoading,
+    required List<dynamic> questions,
+    required String emptyMessage,
+    required String emptySubMessage,
+    required Widget Function(Map<String, dynamic>, int) buildCard,
+  }) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Filter Chips
+            if (currentSubjects.length > 2) ...[
+              _buildFilterChips(),
+              const SizedBox(height: 16),
+            ],
+            
+            // Questions List
+            isLoading
+                ? Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF4CAF50),
+                      ),
+                    ),
+                  )
+                : questions.isEmpty
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.quiz_outlined,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              emptyMessage,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              emptySubMessage,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: questions.length,
+                        itemBuilder: (context, index) {
+                          return buildCard(questions[index], index);
+                        },
+                      ),
+          ],
         ),
       ),
     );
