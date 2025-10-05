@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:superexam/message/firebase_messaging_service.dart';
 import 'package:superexam/screens/exam/exam_screen.dart';
+import 'package:superexam/utils/screenshot_protection.dart';
 import 'package:superexam/widgets/app_background.dart';
+import 'package:superexam/widgets/screenshot_protected_screen.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/home/home_dashboard_screen.dart';
 import 'utils/theme.dart';
@@ -17,6 +19,9 @@ Future<void> main() async {
   }
 
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Enable screenshot protection globally
+  await ScreenshotProtection.enableProtection();
 
   // Set system UI overlay style for proper status bar appearance
   SystemChrome.setSystemUIOverlayStyle(
@@ -74,8 +79,11 @@ class ExamApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       builder: (context, child) {
-        // This builder wraps every screen with our background
-        return AppBackground(child: child!);
+        // Wrap every screen with screenshot protection
+        return ScreenshotProtectedScreen(
+          enforceProtection: false,
+          child: AppBackground(child: child!),
+        );
       },
       home: const AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle(
@@ -98,6 +106,7 @@ class ExamApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/exam':
+            final args = settings.arguments as Map<String, dynamic>?;
             return MaterialPageRoute(
               builder: (context) => AnnotatedRegion<SystemUiOverlayStyle>(
                 value: const SystemUiOverlayStyle(
@@ -110,9 +119,11 @@ class ExamApp extends StatelessWidget {
                   builder: (context, snapshot) {
                     final studentId = snapshot.data ?? '';
                     return ExamScreen(
-                      examTitle: 'realExam',
-                      questionSetId: '',
+                      examTitle: args?['title'] ?? 'realExam',
+                      questionSetId: args?['questionSetId'] ?? '',
                       studentId: studentId,
+                      durationInMinutes: args?['durationInMinutes'] ??
+                          60, // Get duration from args
                     );
                   },
                 ),
@@ -252,6 +263,7 @@ class UserSession {
     BuildContext context, {
     String examTitle = 'realExam',
     String questionSetId = '',
+    int? durationInMinutes, // Make duration nullable
   }) async {
     final studentId = await getUserId() ?? '';
 
@@ -269,6 +281,8 @@ class UserSession {
               examTitle: examTitle,
               questionSetId: questionSetId,
               studentId: studentId,
+              durationInMinutes:
+                  durationInMinutes ?? 60, // Use provided duration or default
             ),
           ),
         ),

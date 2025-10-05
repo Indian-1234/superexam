@@ -503,40 +503,108 @@ class _ExamScreenState extends State<ExamScreen> with ExamTimerMixin {
 
   void _nextQuestion() {
     if (currentQuestionIndex < questions.length - 1) {
-      _navigateToQuestion(currentQuestionIndex + 1);
-    } else {
-      // Check if the exam is complete (all questions answered)
-      final allAnswered = !userAnswers.contains(null);
-      if (allAnswered) {
-        _submitExam();
-      } else {
-        // Show dialog to confirm submission with unanswered questions
+      // If current question is unanswered, show warning
+      if (userAnswers[currentQuestionIndex] == null) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Incomplete Exam'),
-            content: const Text(
-                'You have unanswered questions. Are you sure you want to submit?'),
+            title: const Text('Question Not Answered'),
+            content: const Text('Please select an answer before proceeding.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _submitExam();
-                },
-                child: const Text('Submit Anyway'),
+                child: const Text('OK'),
               ),
             ],
           ),
         );
+        return;
+      }
+      _navigateToQuestion(currentQuestionIndex + 1);
+    } else {
+      // On last question, check if all questions are answered
+      if (userAnswers.contains(null)) {
+        _submitExam(); // This will show the incomplete questions dialog
+      } else {
+        _proceedWithSubmission();
       }
     }
   }
 
-  Future<void> _submitExam() async {
+  void _submitExam() async {
+    // First check for skipped questions
+    List<int> skippedQuestionNumbers = [];
+    List<int> unansweredQuestionNumbers = [];
+
+    for (int i = 0; i < questionStatus.length; i++) {
+      if (questionStatus[i] == QuestionStatus.skipped) {
+        skippedQuestionNumbers.add(i + 1);
+      }
+      // Also check for unanswered questions
+      if (userAnswers[i] == null) {
+        unansweredQuestionNumbers.add(i + 1);
+      }
+    }
+
+    // If there are skipped or unanswered questions, show alert
+    if (skippedQuestionNumbers.isNotEmpty ||
+        unansweredQuestionNumbers.isNotEmpty) {
+      showDialog(
+        context: context,
+        barrierDismissible: false, // User must take action
+        builder: (context) => AlertDialog(
+          title: const Text('Incomplete Questions'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'You must answer all questions before submitting.',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              if (skippedQuestionNumbers.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Skipped Questions: ${skippedQuestionNumbers.join(", ")}',
+                  style: const TextStyle(color: Colors.orange),
+                ),
+              ],
+              if (unansweredQuestionNumbers.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Unanswered Questions: ${unansweredQuestionNumbers.join(", ")}',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // Navigate to first unanswered or skipped question
+                int firstIncomplete = skippedQuestionNumbers.isNotEmpty
+                    ? skippedQuestionNumbers[0] - 1
+                    : unansweredQuestionNumbers[0] - 1;
+                _navigateToQuestion(firstIncomplete);
+              },
+              child: const Text(
+                'Review Questions',
+                style: TextStyle(color: Colors.green),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // If all questions are answered, proceed with submission
+    _proceedWithSubmission();
+  }
+
+  // Add this helper method to handle the actual submission
+  Future<void> _proceedWithSubmission() async {
     setState(() {
       isLoading = true;
     });

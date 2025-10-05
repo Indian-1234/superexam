@@ -215,6 +215,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         question['questionId'] ?? question['questionSetId'] ?? '';
     final isInProgress = await _isExamInProgress(questionId);
 
+    // Extract duration from the question data
+    final int durationInMinutes = question['duration']?['minutes'] ??
+        60; // Default to 60 if not specified
+
     if (!mounted) return;
 
     showDialog(
@@ -283,9 +287,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                       examTitle: question['title'] ?? 'Test',
                       questionSetId: questionId,
                       studentId: widget.studentId,
-                      durationInMinutes: (question['duration'] is int)
-                          ? question['duration']
-                          : 60,
+                      durationInMinutes:
+                          durationInMinutes, // Pass the duration from API
                     ),
                     transitionsBuilder:
                         (context, animation, secondaryAnimation, child) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:no_screenshot/no_screenshot.dart';
+import 'package:screen_protector/screen_protector.dart';
 import 'package:superexam/config/api_config.dart';
 import 'dart:convert';
 
@@ -27,24 +29,29 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
   String selectedFilter = 'All';
   List<String> filterOptions = ['All', 'Correct', 'Wrong'];
 
+  final _noScreenshot = NoScreenshot.instance;
+  bool _isScreenProtected = false;
+
   @override
   void initState() {
     super.initState();
-    
+    _enableScreenProtection();
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
-    
+
     fetchAttemptDetails();
   }
 
   @override
   void dispose() {
+    _disableScreenProtection();
     _fadeController.dispose();
     super.dispose();
   }
@@ -87,9 +94,9 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
 
   List<Map<String, dynamic>> get filteredQuestions {
     if (attemptDetails == null) return [];
-    
+
     final questions = List<Map<String, dynamic>>.from(attemptDetails!['questions']);
-    
+
     switch (selectedFilter) {
       case 'Correct':
         return questions.where((q) => q['isCorrect'] == true).toList();
@@ -118,13 +125,13 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
 
   Widget _buildStatsCard() {
     if (attemptDetails == null) return const SizedBox();
-    
+
     final percentage = attemptDetails!['percentage'];
     final correctAnswers = attemptDetails!['correctAnswers'];
     final wrongAnswers = attemptDetails!['wrongAnswers'];
     final totalQuestions = attemptDetails!['totalQuestions'];
     final timeTaken = attemptDetails!['timeTaken'];
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -296,203 +303,238 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
     );
   }
 
-Widget _buildQuestionCard(Map<String, dynamic> questionData, int index) {
-  final isCorrect = questionData['isCorrect'] ?? false;
-  
-  // Extract question text
-  final question = questionData['question']?.toString() ?? 'Question not available';
-  
-  // Extract options as list of strings
-  final options = <String>[];
-  if (questionData['options'] != null && questionData['options'] is List) {
-    for (var option in questionData['options']) {
-      if (option is String) {
-        options.add(option);
-      } else {
-        // Fallback for any remaining object format
-        options.add(option?.toString() ?? '');
+  Widget _buildQuestionCard(Map<String, dynamic> questionData, int index) {
+    final isCorrect = questionData['isCorrect'] ?? false;
+
+    // Extract question text
+    final question = questionData['question']?.toString() ?? 'Question not available';
+
+    // Extract options as list of strings
+    final options = <String>[];
+    if (questionData['options'] != null && questionData['options'] is List) {
+      for (var option in questionData['options']) {
+        if (option is String) {
+          options.add(option);
+        } else {
+          // Fallback for any remaining object format
+          options.add(option?.toString() ?? '');
+        }
       }
     }
-  }
-  
-  // Extract indices with proper null checks
-  final correctOptionIndex = questionData['correctOptionIndex'] is int 
-      ? questionData['correctOptionIndex'] 
-      : -1;
-  final selectedOptionIndex = questionData['selectedOptionIndex'] is int 
-      ? questionData['selectedOptionIndex'] 
-      : -1;
-  
-  return FadeTransition(
-    opacity: _fadeAnimation,
-    child: Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+
+    // Extract indices with proper null checks
+    final correctOptionIndex = questionData['correctOptionIndex'] is int
+        ? questionData['correctOptionIndex']
+        : -1;
+    final selectedOptionIndex = questionData['selectedOptionIndex'] is int
+        ? questionData['selectedOptionIndex']
+        : -1;
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: isCorrect ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+            width: 2,
           ),
-        ],
-        border: Border.all(
-          color: isCorrect ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
-          width: 2,
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Question Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isCorrect ? Colors.green : Colors.red,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    isCorrect ? Icons.check : Icons.close,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Question ${index + 1}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Question Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isCorrect ? Colors.green : Colors.red,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isCorrect ? Icons.check : Icons.close,
+                      color: Colors.white,
+                      size: 16,
                     ),
                   ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Question Text
-            Text(
-              question,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.black87,
-                height: 1.4,
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Options
-            if (options.isNotEmpty)
-              ...options.asMap().entries.map((entry) {
-                final optionIndex = entry.key;
-                final optionText = entry.value;
-                final isCorrectOption = optionIndex == correctOptionIndex;
-                final isSelectedOption = optionIndex == selectedOptionIndex;
-                
-                Color backgroundColor = Colors.grey[50]!;
-                Color borderColor = Colors.grey[200]!;
-                Color textColor = Colors.black87;
-                IconData? icon;
-                
-                if (isCorrectOption) {
-                  backgroundColor = Colors.green.withOpacity(0.1);
-                  borderColor = Colors.green.withOpacity(0.5);
-                  textColor = Colors.green[700]!;
-                  icon = Icons.check_circle;
-                } else if (isSelectedOption && !isCorrect) {
-                  backgroundColor = Colors.red.withOpacity(0.1);
-                  borderColor = Colors.red.withOpacity(0.5);
-                  textColor = Colors.red[700]!;
-                  icon = Icons.cancel;
-                }
-                
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: borderColor, width: 1.5),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Question ${index + 1}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: isCorrectOption 
-                              ? Colors.green 
-                              : (isSelectedOption && !isCorrect)
-                                  ? Colors.red
-                                  : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Text(
-                            String.fromCharCode(65 + optionIndex), // A, B, C, D
-                            style: TextStyle(
-                              color: (isCorrectOption || (isSelectedOption && !isCorrect))
-                                  ? Colors.white
-                                  : Colors.black54,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Question Text
+              Text(
+                question,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Colors.black87,
+                  height: 1.4,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Options
+              if (options.isNotEmpty)
+                ...options.asMap().entries.map((entry) {
+                  final optionIndex = entry.key;
+                  final optionText = entry.value;
+                  final isCorrectOption = optionIndex == correctOptionIndex;
+                  final isSelectedOption = optionIndex == selectedOptionIndex;
+
+                  Color backgroundColor = Colors.grey[50]!;
+                  Color borderColor = Colors.grey[200]!;
+                  Color textColor = Colors.black87;
+                  IconData? icon;
+
+                  if (isCorrectOption) {
+                    backgroundColor = Colors.green.withOpacity(0.1);
+                    borderColor = Colors.green.withOpacity(0.5);
+                    textColor = Colors.green[700]!;
+                    icon = Icons.check_circle;
+                  } else if (isSelectedOption && !isCorrect) {
+                    backgroundColor = Colors.red.withOpacity(0.1);
+                    borderColor = Colors.red.withOpacity(0.5);
+                    textColor = Colors.red[700]!;
+                    icon = Icons.cancel;
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: borderColor, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: isCorrectOption
+                                ? Colors.green
+                                : (isSelectedOption && !isCorrect)
+                                    ? Colors.red
+                                    : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              String.fromCharCode(65 + optionIndex), // A, B, C, D
+                              style: TextStyle(
+                                color: (isCorrectOption || (isSelectedOption && !isCorrect))
+                                    ? Colors.white
+                                    : Colors.black54,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          optionText,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 14,
-                            fontWeight: (isCorrectOption || isSelectedOption) 
-                                ? FontWeight.w600 
-                                : FontWeight.normal,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            optionText,
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 14,
+                              fontWeight: (isCorrectOption || isSelectedOption)
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
                           ),
                         ),
-                      ),
-                      if (icon != null)
-                        Icon(
-                          icon,
-                          color: isCorrectOption ? Colors.green : Colors.red,
-                          size: 20,
-                        ),
-                    ],
+                        if (icon != null)
+                          Icon(
+                            icon,
+                            color: isCorrectOption ? Colors.green : Colors.red,
+                            size: 20,
+                          ),
+                      ],
+                    ),
+                  );
+                }).toList()
+              else
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                );
-              }).toList()
-            else
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'No options available for this question',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontStyle: FontStyle.italic,
+                  child: const Text(
+                    'No options available for this question',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Future<void> _enableScreenProtection() async {
+    try {
+      // Enable screenshot blocking
+      await _noScreenshot.screenshotOff();
+
+      // Enable screen recording protection
+      await ScreenProtector.protectDataLeakageOn();
+
+      // Prevent screenshots in app switcher
+      await ScreenProtector.preventScreenshotOn();
+
+      setState(() {
+        _isScreenProtected = true;
+      });
+
+      print('Screen protection enabled for AttemptDetailsScreen');
+    } catch (e) {
+      print('Failed to enable screen protection: $e');
+    }
+  }
+
+  Future<void> _disableScreenProtection() async {
+    try {
+      await _noScreenshot.screenshotOn();
+      await ScreenProtector.protectDataLeakageOff();
+      await ScreenProtector.preventScreenshotOff();
+      setState(() {
+        _isScreenProtected = false;
+      });
+    } catch (e) {
+      print('Failed to disable screen protection: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -534,9 +576,9 @@ Widget _buildQuestionCard(Map<String, dynamic> questionData, int index) {
                       children: [
                         // Stats Card
                         _buildStatsCard(),
-                        
+
                         const SizedBox(height: 24),
-                        
+
                         // Section Header
                         const Text(
                           'Question Details',
@@ -546,14 +588,14 @@ Widget _buildQuestionCard(Map<String, dynamic> questionData, int index) {
                             color: Colors.black87,
                           ),
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Filter Chips
                         _buildFilterChips(),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Questions List
                         filteredQuestions.isEmpty
                             ? Container(

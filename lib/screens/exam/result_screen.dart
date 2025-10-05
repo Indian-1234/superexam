@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:no_screenshot/no_screenshot.dart';
+import 'package:screen_protector/screen_protector.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:superexam/main.dart';
 import 'package:superexam/screens/home/home_dashboard_screen.dart';
 
-class ResultScreen extends StatelessWidget {
+class ResultScreen extends StatefulWidget {
   final String examTitle;
   final int totalScore;
   final int totalQuestions;
@@ -22,10 +24,64 @@ class ResultScreen extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<ResultScreen> createState() => _ResultScreenState();
+}
+
+class _ResultScreenState extends State<ResultScreen> {
+  final _noScreenshot = NoScreenshot.instance;
+  bool _isScreenProtected = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _enableScreenProtection();
+  }
+
+  Future<void> _enableScreenProtection() async {
+    try {
+      // Enable screenshot blocking
+      await _noScreenshot.screenshotOff();
+
+      // Enable screen recording protection
+      await ScreenProtector.protectDataLeakageOn();
+
+      // Prevent screenshots in app switcher
+      await ScreenProtector.preventScreenshotOn();
+
+      setState(() {
+        _isScreenProtected = true;
+      });
+
+      print('Screen protection enabled for ResultScreen');
+    } catch (e) {
+      print('Failed to enable screen protection: $e');
+    }
+  }
+
+  Future<void> _disableScreenProtection() async {
+    try {
+      await _noScreenshot.screenshotOn();
+      await ScreenProtector.protectDataLeakageOff();
+      await ScreenProtector.preventScreenshotOff();
+      setState(() {
+        _isScreenProtected = false;
+      });
+    } catch (e) {
+      print('Failed to disable screen protection: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _disableScreenProtection();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Calculate correct answers count
     int correctAnswers = 0;
-    for (var question in questionResults) {
+    for (var question in widget.questionResults) {
       if (question['userAnswerIndex'] != null &&
           question['userAnswerIndex'] == question['correctOptionIndex']) {
         correctAnswers++;
@@ -33,11 +89,11 @@ class ResultScreen extends StatelessWidget {
     }
 
     // Calculate total points based on pointValue and correct answers
-    double totalPoints = correctAnswers * pointValue;
-    double maxPoints = totalQuestions * pointValue;
+    double totalPoints = correctAnswers * widget.pointValue;
+    double maxPoints = widget.totalQuestions * widget.pointValue;
 
     // Calculate percentage for the circular indicator
-    double percentage = totalQuestions > 0 ? correctAnswers / totalQuestions : 0;
+    double percentage = widget.totalQuestions > 0 ? correctAnswers / widget.totalQuestions : 0;
 
     return Scaffold(
       body: Container(
@@ -71,7 +127,7 @@ class ResultScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        examTitle,
+                        widget.examTitle,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -111,7 +167,7 @@ class ResultScreen extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      '$correctAnswers/$totalQuestions',
+                                      '$correctAnswers/${widget.totalQuestions}',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 20.0,
@@ -136,9 +192,9 @@ class ResultScreen extends StatelessWidget {
                               const SizedBox(height: 24),
                               _buildInfoRow('Total Points:', '${totalPoints.toStringAsFixed(1)}/${maxPoints.toStringAsFixed(1)}'),
                               const SizedBox(height: 8),
-                              _buildInfoRow('Points per Question:', pointValue.toStringAsFixed(1)),
+                              _buildInfoRow('Points per Question:', widget.pointValue.toStringAsFixed(1)),
                               const SizedBox(height: 8),
-                              _buildInfoRow('Correct Answers:', '$correctAnswers out of $totalQuestions'),
+                              _buildInfoRow('Correct Answers:', '$correctAnswers out of ${widget.totalQuestions}'),
                               // const SizedBox(height: 8),
                               // _buildInfoRow('Attempt ID:', attemptId),
                             ],
@@ -160,9 +216,9 @@ class ResultScreen extends StatelessWidget {
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: questionResults.length,
+                        itemCount: widget.questionResults.length,
                         itemBuilder: (context, index) {
-                          final question = questionResults[index];
+                          final question = widget.questionResults[index];
                           final userAnswerIndex = question['userAnswerIndex'];
                           final correctOptionIndex = question['correctOptionIndex'];
                           final isCorrect = userAnswerIndex != null && userAnswerIndex == correctOptionIndex;
@@ -212,7 +268,7 @@ class ResultScreen extends StatelessWidget {
                                       ),
                                       const Spacer(),
                                       Text(
-                                        isCorrect ? '+${pointValue.toStringAsFixed(1)} points' : '0 points',
+                                        isCorrect ? '+${widget.pointValue.toStringAsFixed(1)} points' : '0 points',
                                         style: TextStyle(
                                           color: isCorrect ? Colors.green : Colors.red,
                                           fontWeight: FontWeight.bold,
