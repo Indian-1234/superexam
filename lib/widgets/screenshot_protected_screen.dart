@@ -12,7 +12,8 @@ class ScreenshotProtectedScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ScreenshotProtectedScreen> createState() => _ScreenshotProtectedScreenState();
+  State<ScreenshotProtectedScreen> createState() =>
+      _ScreenshotProtectedScreenState();
 }
 
 class _ScreenshotProtectedScreenState extends State<ScreenshotProtectedScreen> {

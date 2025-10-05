@@ -59,7 +59,8 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
   Future<void> fetchAttemptDetails() async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}api/attempt/details/${widget.attemptId}'),
+        Uri.parse(
+            '${ApiConfig.baseUrl}api/attempt/details/${widget.attemptId}'),
       );
 
       if (response.statusCode == 200) {
@@ -95,7 +96,8 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
   List<Map<String, dynamic>> get filteredQuestions {
     if (attemptDetails == null) return [];
 
-    final questions = List<Map<String, dynamic>>.from(attemptDetails!['questions']);
+    final questions =
+        List<Map<String, dynamic>>.from(attemptDetails!['questions']);
 
     switch (selectedFilter) {
       case 'Correct':
@@ -307,7 +309,8 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
     final isCorrect = questionData['isCorrect'] ?? false;
 
     // Extract question text
-    final question = questionData['question']?.toString() ?? 'Question not available';
+    final question =
+        questionData['question']?.toString() ?? 'Question not available';
 
     // Extract options as list of strings
     final options = <String>[];
@@ -345,7 +348,9 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
             ),
           ],
           border: Border.all(
-            color: isCorrect ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+            color: isCorrect
+                ? Colors.green.withOpacity(0.3)
+                : Colors.red.withOpacity(0.3),
             width: 2,
           ),
         ),
@@ -445,9 +450,11 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
                           ),
                           child: Center(
                             child: Text(
-                              String.fromCharCode(65 + optionIndex), // A, B, C, D
+                              String.fromCharCode(
+                                  65 + optionIndex), // A, B, C, D
                               style: TextStyle(
-                                color: (isCorrectOption || (isSelectedOption && !isCorrect))
+                                color: (isCorrectOption ||
+                                        (isSelectedOption && !isCorrect))
                                     ? Colors.white
                                     : Colors.black54,
                                 fontSize: 12,
@@ -628,7 +635,8 @@ class _AttemptDetailsScreenState extends State<AttemptDetailsScreen>
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: filteredQuestions.length,
                                 itemBuilder: (context, index) {
-                                  return _buildQuestionCard(filteredQuestions[index], index);
+                                  return _buildQuestionCard(
+                                      filteredQuestions[index], index);
                                 },
                               ),
                       ],

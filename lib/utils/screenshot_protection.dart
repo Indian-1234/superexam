@@ -2,7 +2,8 @@ import 'package:no_screenshot/no_screenshot.dart';
 import 'package:screen_protector/screen_protector.dart';
 
 class ScreenshotProtection {
-  static final ScreenshotProtection _instance = ScreenshotProtection._internal();
+  static final ScreenshotProtection _instance =
+      ScreenshotProtection._internal();
   static final _noScreenshot = NoScreenshot.instance;
   static bool _isProtected = false;
 

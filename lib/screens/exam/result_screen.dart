@@ -93,7 +93,8 @@ class _ResultScreenState extends State<ResultScreen> {
     double maxPoints = widget.totalQuestions * widget.pointValue;
 
     // Calculate percentage for the circular indicator
-    double percentage = widget.totalQuestions > 0 ? correctAnswers / widget.totalQuestions : 0;
+    double percentage =
+        widget.totalQuestions > 0 ? correctAnswers / widget.totalQuestions : 0;
 
     return Scaffold(
       body: Container(
@@ -121,7 +122,8 @@ class _ResultScreenState extends State<ResultScreen> {
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
                       onPressed: () {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
+                        Navigator.of(context)
+                            .popUntil((route) => route.isFirst);
                       },
                     ),
                     const SizedBox(width: 8),
@@ -186,15 +188,18 @@ class _ResultScreenState extends State<ResultScreen> {
                                 progressColor: percentage >= 0.7
                                     ? Colors.green
                                     : percentage >= 0.4
-                                    ? Colors.orange
-                                    : Colors.red,
+                                        ? Colors.orange
+                                        : Colors.red,
                               ),
                               const SizedBox(height: 24),
-                              _buildInfoRow('Total Points:', '${totalPoints.toStringAsFixed(1)}/${maxPoints.toStringAsFixed(1)}'),
+                              _buildInfoRow('Total Points:',
+                                  '${totalPoints.toStringAsFixed(1)}/${maxPoints.toStringAsFixed(1)}'),
                               const SizedBox(height: 8),
-                              _buildInfoRow('Points per Question:', widget.pointValue.toStringAsFixed(1)),
+                              _buildInfoRow('Points per Question:',
+                                  widget.pointValue.toStringAsFixed(1)),
                               const SizedBox(height: 8),
-                              _buildInfoRow('Correct Answers:', '$correctAnswers out of ${widget.totalQuestions}'),
+                              _buildInfoRow('Correct Answers:',
+                                  '$correctAnswers out of ${widget.totalQuestions}'),
                               // const SizedBox(height: 8),
                               // _buildInfoRow('Attempt ID:', attemptId),
                             ],
@@ -220,15 +225,19 @@ class _ResultScreenState extends State<ResultScreen> {
                         itemBuilder: (context, index) {
                           final question = widget.questionResults[index];
                           final userAnswerIndex = question['userAnswerIndex'];
-                          final correctOptionIndex = question['correctOptionIndex'];
-                          final isCorrect = userAnswerIndex != null && userAnswerIndex == correctOptionIndex;
+                          final correctOptionIndex =
+                              question['correctOptionIndex'];
+                          final isCorrect = userAnswerIndex != null &&
+                              userAnswerIndex == correctOptionIndex;
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                               side: BorderSide(
-                                color: isCorrect ? Colors.green.shade200 : Colors.red.shade200,
+                                color: isCorrect
+                                    ? Colors.green.shade200
+                                    : Colors.red.shade200,
                                 width: 1,
                               ),
                             ),
@@ -248,12 +257,15 @@ class _ResultScreenState extends State<ResultScreen> {
                                           color: isCorrect
                                               ? Colors.green.shade100
                                               : Colors.red.shade100,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: Text(
                                           isCorrect ? 'Correct' : 'Incorrect',
                                           style: TextStyle(
-                                            color: isCorrect ? Colors.green.shade800 : Colors.red.shade800,
+                                            color: isCorrect
+                                                ? Colors.green.shade800
+                                                : Colors.red.shade800,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
@@ -268,9 +280,13 @@ class _ResultScreenState extends State<ResultScreen> {
                                       ),
                                       const Spacer(),
                                       Text(
-                                        isCorrect ? '+${widget.pointValue.toStringAsFixed(1)} points' : '0 points',
+                                        isCorrect
+                                            ? '+${widget.pointValue.toStringAsFixed(1)} points'
+                                            : '0 points',
                                         style: TextStyle(
-                                          color: isCorrect ? Colors.green : Colors.red,
+                                          color: isCorrect
+                                              ? Colors.green
+                                              : Colors.red,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -288,16 +304,27 @@ class _ResultScreenState extends State<ResultScreen> {
                                   Column(
                                     children: List.generate(
                                       (question['options'] as List).length,
-                                          (idx) {
-                                        final optionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
-                                        final optionLabel = idx < optionLabels.length
-                                            ? optionLabels[idx]
-                                            : (idx + 1).toString();
-                                        final isUserAnswer = userAnswerIndex == idx;
-                                        final isCorrectOption = correctOptionIndex == idx;
+                                      (idx) {
+                                        final optionLabels = [
+                                          'A',
+                                          'B',
+                                          'C',
+                                          'D',
+                                          'E',
+                                          'F'
+                                        ];
+                                        final optionLabel =
+                                            idx < optionLabels.length
+                                                ? optionLabels[idx]
+                                                : (idx + 1).toString();
+                                        final isUserAnswer =
+                                            userAnswerIndex == idx;
+                                        final isCorrectOption =
+                                            correctOptionIndex == idx;
 
                                         Color bgColor = Colors.white;
-                                        Color borderColor = Colors.grey.shade300;
+                                        Color borderColor =
+                                            Colors.grey.shade300;
                                         Color textColor = Colors.black;
 
                                         if (isUserAnswer && isCorrectOption) {
@@ -316,14 +343,16 @@ class _ResultScreenState extends State<ResultScreen> {
 
                                         return Container(
                                           width: double.infinity,
-                                          margin: const EdgeInsets.only(bottom: 8),
+                                          margin:
+                                              const EdgeInsets.only(bottom: 8),
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 12,
                                             horizontal: 16,
                                           ),
                                           decoration: BoxDecoration(
                                             color: bgColor,
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                             border: Border.all(
                                               color: borderColor,
                                               width: 1,
@@ -341,13 +370,16 @@ class _ResultScreenState extends State<ResultScreen> {
                                               Expanded(
                                                 child: Text(
                                                   question['options'][idx],
-                                                  style: TextStyle(color: textColor),
+                                                  style: TextStyle(
+                                                      color: textColor),
                                                 ),
                                               ),
                                               if (isUserAnswer)
                                                 Icon(
                                                   Icons.check_circle,
-                                                  color: isCorrectOption ? Colors.green : Colors.red,
+                                                  color: isCorrectOption
+                                                      ? Colors.green
+                                                      : Colors.red,
                                                   size: 20,
                                                 )
                                               else if (isCorrectOption)
@@ -374,39 +406,39 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
 
               // Action buttons
-                SizedBox(
-  width: double.infinity,
-  child: ElevatedButton(
-    onPressed: () async {
-      // Get user session data
-      final userName = await UserSession.getUserName() ?? 'Student';
-      final userId = await UserSession.getUserId() ?? '';
-      
-      // Clear all routes and push HomeDashboardScreen
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => HomeDashboardScreen(
-            username: userName,
-            studentId: userId,
-          ),
-        ),
-        (route) => false, // Remove all previous routes
-      );
-    },
-    style: ElevatedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      backgroundColor: Colors.green,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-    ),
-    child: const Text(
-      'Back to Home',
-      style: TextStyle(color: Colors.white),
-    ),
-  ),
-),
-          
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    // Get user session data
+                    final userName =
+                        await UserSession.getUserName() ?? 'Student';
+                    final userId = await UserSession.getUserId() ?? '';
+
+                    // Clear all routes and push HomeDashboardScreen
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => HomeDashboardScreen(
+                          username: userName,
+                          studentId: userId,
+                        ),
+                      ),
+                      (route) => false, // Remove all previous routes
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Back to Home',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -426,7 +458,8 @@ class _ResultScreenState extends State<ResultScreen> {
           ),
         ),
         const SizedBox(width: 8), // Add spacing between the label and value
-        Flexible(  // Wrap the value text in Flexible
+        Flexible(
+          // Wrap the value text in Flexible
           child: Text(
             value,
             style: const TextStyle(
@@ -439,5 +472,4 @@ class _ResultScreenState extends State<ResultScreen> {
       ],
     );
   }
-
 }
