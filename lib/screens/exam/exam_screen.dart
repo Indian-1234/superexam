@@ -17,12 +17,14 @@ class ExamScreen extends StatefulWidget {
   final String examTitle;
   final String questionSetId;
   final String studentId;
+  final int durationInMinutes; // Add this field
 
   const ExamScreen({
     Key? key,
     required this.examTitle,
     required this.questionSetId,
     required this.studentId,
+    required this.durationInMinutes, // Add this parameter
   }) : super(key: key);
 
   @override
@@ -108,8 +110,11 @@ class _ExamScreenState extends State<ExamScreen> with ExamTimerMixin {
     );
     await clearTimerState(_examKey);
 
+    // Use the duration from widget
+    final duration = Duration(minutes: widget.durationInMinutes);
+
     initializeTimer(
-      duration: const Duration(hours: 1),
+      duration: duration,
       onTimeUpCallback: _submitExam,
       examKey: _examKey,
     );

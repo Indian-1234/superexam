@@ -176,6 +176,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             completedSubjects = [
               'All',
               ...completedQuestions
+                  .where((q) =>
+                      q['subject'] != null && q['subject']['name'] != null)
                   .map<String>((q) => q['subject']['name'])
                   .toSet()
                   .toList()
@@ -209,7 +211,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
   // Replace the existing navigateToExam method with this one
   void navigateToExam(Map<String, dynamic> question) async {
-    final isInProgress = await _isExamInProgress(question['questionId']);
+    final questionId =
+        question['questionId'] ?? question['questionSetId'] ?? '';
+    final isInProgress = await _isExamInProgress(questionId);
 
     if (!mounted) return;
 
@@ -221,7 +225,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             borderRadius: BorderRadius.circular(15),
           ),
           title: Text(
-            question['title'],
+            question['title'] ?? 'Test',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -242,14 +246,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                'Subject: ${question['subject']['name']}',
+                'Subject: ${question['subject']?['name'] ?? 'Unknown'}',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
                 ),
               ),
               Text(
-                'Unit: ${question['unit']['name']}',
+                'Unit: ${question['unit']?['name'] ?? 'Unknown'}',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -276,9 +280,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                   PageRouteBuilder(
                     pageBuilder: (context, animation, secondaryAnimation) =>
                         ExamScreen(
-                      examTitle: question['title'],
-                      questionSetId: question['questionId'],
+                      examTitle: question['title'] ?? 'Test',
+                      questionSetId: questionId,
                       studentId: widget.studentId,
+                      durationInMinutes: (question['duration'] is int)
+                          ? question['duration']
+                          : 60,
                     ),
                     transitionsBuilder:
                         (context, animation, secondaryAnimation, child) {
@@ -445,11 +452,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
   // Update the _buildAvailableQuestionCard method
   Widget _buildAvailableQuestionCard(Map<String, dynamic> question, int index) {
+    // Fix: Use the correct field name and add null check
+    final questionId =
+        question['questionId'] ?? question['questionSetId'] ?? '';
+
     return FutureBuilder<bool>(
-      future: _isExamInProgress(question['questionId']),
+      future: questionId.isNotEmpty
+          ? _isExamInProgress(questionId)
+          : Future.value(false),
       builder: (context, snapshot) {
         final isInProgress = snapshot.data ?? false;
-        final subjectColor = _getSubjectColor(question['subject']['name']);
+        final subjectName = question['subject']?['name'] ?? 'Unknown';
+        final subjectColor = _getSubjectColor(subjectName);
+        final unitName = question['unit']?['name'] ?? 'Unknown';
 
         return FadeTransition(
           opacity: _fadeAnimation,
@@ -491,7 +506,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            question['title'],
+                            question['title'] ?? 'Untitled',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -511,7 +526,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  question['subject']['name'],
+                                  subjectName,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
@@ -521,7 +536,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                '• ${question['unit']['name']}',
+                                '• $unitName',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
@@ -580,8 +595,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   }
 
   Widget _buildCompletedQuestionCard(Map<String, dynamic> attempt, int index) {
-    final subjectColor = _getSubjectColor(attempt['subject']['name']);
+    final subjectName = attempt['subject']?['name'] ?? 'Unknown';
+    final subjectColor = _getSubjectColor(subjectName);
     final percentage = attempt['percentage'] ?? 0;
+    final unitName = attempt['unit']?['name'] ?? 'Unknown';
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -623,7 +640,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        attempt['title'],
+                        attempt['title'] ?? 'Untitled',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -643,7 +660,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              attempt['subject']['name'],
+                              subjectName,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -653,7 +670,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '• ${attempt['unit']['name']}',
+                            '• $unitName',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -688,7 +705,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '${attempt['correctAnswers']}/${attempt['totalQuestions']}',
+                            '${attempt['correctAnswers'] ?? 0}/${attempt['totalQuestions'] ?? 0}',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
