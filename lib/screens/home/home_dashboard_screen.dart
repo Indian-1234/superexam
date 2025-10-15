@@ -211,13 +211,25 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
 
   // Replace the existing navigateToExam method with this one
   void navigateToExam(Map<String, dynamic> question) async {
-    final questionId =
-        question['questionId'] ?? question['questionSetId'] ?? '';
+    final questionId = question['questionId'] ?? question['questionSetId'] ?? '';
     final isInProgress = await _isExamInProgress(questionId);
 
-    // Extract duration from the question data
-    final int durationInMinutes = question['duration']?['minutes'] ??
-        60; // Default to 60 if not specified
+    // Extract duration - handle both formats from different API endpoints
+    int durationInMinutes = 60; // Default
+
+    // Check if duration is directly a number (from questions detail API)
+    if (question['duration'] is int && question['duration'] > 0) {
+      durationInMinutes = question['duration'];
+    }
+    // Check if duration is an object with minutes property (from unattempted API)
+    else if (question['duration'] is Map &&
+        question['duration']['minutes'] is int &&
+        question['duration']['minutes'] > 0) {
+      durationInMinutes = question['duration']['minutes'];
+    }
+
+    print('Using duration: $durationInMinutes minutes for exam: ${question['title']}');
+
 
     if (!mounted) return;
 
@@ -263,6 +275,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                   color: Colors.grey[600],
                 ),
               ),
+              // Add duration display
+              Text(
+                'Duration: $durationInMinutes minutes',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           actions: [
@@ -287,8 +308,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                       examTitle: question['title'] ?? 'Test',
                       questionSetId: questionId,
                       studentId: widget.studentId,
-                      durationInMinutes:
-                          durationInMinutes, // Pass the duration from API
+                      durationInMinutes: durationInMinutes, // Pass validated duration
                     ),
                     transitionsBuilder:
                         (context, animation, secondaryAnimation, child) {

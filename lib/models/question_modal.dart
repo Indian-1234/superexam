@@ -2,7 +2,7 @@ class QuestionModel {
   final String id;
   final String question;
   final List<String> options;
-  final int? correctOptionIndex; // Make it nullable
+  final int correctOptionIndex;
 
   QuestionModel({
     required this.id,
@@ -11,12 +11,9 @@ class QuestionModel {
     required this.correctOptionIndex,
   });
 
-  factory QuestionModel.fromJson(Map<String, dynamic> json) {
-    return QuestionModel(
-      id: json['questionId'] ?? '', // or use 'id' if your backend returns it like that
-      question: json['questionText'],
-      options: List<String>.from(json['options']),
-      correctOptionIndex: json['correctOptionIndex'] ?? -1, // fallback if missing
-    );
+  // Add toString method for debugging
+  @override
+  String toString() {
+    return 'QuestionModel(id: $id, question: $question, options: $options, correctOptionIndex: $correctOptionIndex)';
   }
 }

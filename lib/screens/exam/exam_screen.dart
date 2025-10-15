@@ -198,8 +198,6 @@ class _ExamScreenState extends State<ExamScreen> with ExamTimerMixin {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}api/questions/${widget.questionSetId}'),
       );
-      print(
-          'Status: ${response.statusCode}, Body: ${response.body} ***********************************************************');
 
       if (response.statusCode == 200) {
         final questionData = json.decode(response.body);
@@ -213,20 +211,28 @@ class _ExamScreenState extends State<ExamScreen> with ExamTimerMixin {
               questionData.containsKey('data') &&
               questionData['data'].containsKey('questions') &&
               questionData['data']['questions'] is List) {
-            // Extract subject, unit, and topics IDs from the response
-            if (questionData['data'].containsKey('subject') &&
-                questionData['data']['subject']['_id'] != null) {
-              subjectId = questionData['data']['subject']['_id'];
+            
+            // Extract duration from API response if available
+            if (questionData['data'].containsKey('duration') &&
+                questionData['data']['duration'] is int &&
+                questionData['data']['duration'] > 0) {
+              final apiDuration = questionData['data']['duration'];
+              // Update the timer if the API provides a different duration
+              if (apiDuration != widget.durationInMinutes) {
+                print('Duration from API: $apiDuration minutes, using this instead of ${widget.durationInMinutes}');
+                // Re-initialize timer with new duration if needed
+                initializeTimer(
+                  duration: Duration(minutes: apiDuration),
+                  onTimeUpCallback: _submitExam,
+                  examKey: _examKey,
+                );
+              }
             }
-            if (questionData['data'].containsKey('unit') &&
-                questionData['data']['unit']['_id'] != null) {
-              unitId = questionData['data']['unit']['_id'];
-            }
-
-            if (questionData['data'].containsKey('topics') &&
-                questionData['data']['topics'] != null) {
-              topicsId = questionData['data']['topics'].toString();
-            }
+            
+            // Extract subject, unit, and topics IDs
+            subjectId = questionData['data']['subject']?['_id'];
+            unitId = questionData['data']['unit']?['_id'];
+            topicsId = questionData['data']['topics']?.toString();
 
             final questionsList = questionData['data']['questions'] as List;
 
